@@ -3,210 +3,207 @@ package ai.nebula.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-private val Night = Color(0xFF0B0A12)
-private val Panel = Color(0xFF171522)
-private val Violet = Color(0xFF9B72FF)
-private val Muted = Color(0xFFAAA5BA)
+private val Bg = Color(0xFF202020)
+private val Card = Color(0xFF2B2B2B)
+private val Field = Color(0xFF363636)
+private val Purple = Color(0xFF8860F5)
+private val Yellow = Color(0xFFFFC85A)
+private val Muted = Color(0xFFAAA7B0)
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val prefs = getSharedPreferences("nebula", MODE_PRIVATE)
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme(background = Night, surface = Panel, primary = Violet, onBackground = Color.White, onSurface = Color.White)) {
-                NebulaApp(
-                    prefs.getString("base", "https://api.openai.com/v1") ?: "",
-                    prefs.getString("model", "gpt-4o-mini") ?: "",
-                    prefs.getString("key", "") ?: ""
-                ) { base, model, key ->
-                    prefs.edit().putString("base", base).putString("model", model).putString("key", key).apply()
-                }
-            }
-        }
+ override fun onCreate(savedInstanceState: Bundle?) {
+  super.onCreate(savedInstanceState)
+  val p = getSharedPreferences("nebula", MODE_PRIVATE)
+  setContent {
+   MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, onBackground=Color.White, onSurface=Color.White)) {
+    Nebula(p.getString("base","https://api.openai.com/v1")!!, p.getString("model","gpt-4o-mini")!!, p.getString("key","")!!) { b,m,k ->
+     p.edit().putString("base",b).putString("model",m).putString("key",k).apply()
     }
+   }
+  }
+ }
+}
+private data class Person(val name:String,val creator:String,val bio:String,val category:String,val initials:String)
+private data class Line(val user:Boolean,val text:String)
+private val people = listOf(
+ Person("Рин Итоши","@nebula","Холодный и расчётливый футболист. Не любит пустых разговоров.","Аниме","РИ"),
+ Person("Астра","@nebula","Спокойная, внимательная, с тонким чувством юмора.","ОС","А"),
+ Person("Кай","@nebula","Ироничный напарник, который любит приключения.","Игры","К"),
+ Person("Мира","@nebula","Загадочная собеседница со своей историей.","Фэнтези","М")
+)
+
+@Composable private fun Nebula(base0:String, model0:String, key0:String, save:(String,String,String)->Unit) {
+ var page by remember { mutableStateOf("home") }
+ var selected by remember { mutableStateOf(people[0]) }
+ var category by remember { mutableStateOf("Все") }
+ var search by remember { mutableStateOf("") }
+ var base by remember { mutableStateOf(base0) }
+ var model by remember { mutableStateOf(model0) }
+ var apiKey by remember { mutableStateOf(key0) }
+ var showSettings by remember { mutableStateOf(false) }
+ var name by remember { mutableStateOf("") }
+ var bio by remember { mutableStateOf("") }
+ var input by remember { mutableStateOf("") }
+ var busy by remember { mutableStateOf(false) }
+ var error by remember { mutableStateOf("") }
+ val lines = remember { mutableStateListOf<Line>() }
+ val scope = rememberCoroutineScope()
+ val drawer = rememberDrawerState(DrawerValue.Closed)
+
+ ModalNavigationDrawer(drawerState=drawer, drawerContent={
+  ModalDrawerSheet(drawerContainerColor=Card) {
+   Spacer(Modifier.height(20.dp))
+   Text("NEBULA",fontSize=28.sp,fontWeight=FontWeight.Black,modifier=Modifier.padding(horizontal=22.dp))
+   Text("ТВОЯ ВСЕЛЕННАЯ ИСТОРИЙ",fontSize=10.sp,color=Muted,letterSpacing=1.5.sp,modifier=Modifier.padding(horizontal=22.dp))
+   Spacer(Modifier.height(26.dp))
+   Text("СОЗДАТЬ",fontSize=11.sp,color=Muted,modifier=Modifier.padding(horizontal=22.dp,vertical=8.dp))
+   NavItem("Новый персонаж",Icons.Outlined.AddCircle){page="create";scope.launch{drawer.close()}}
+   Spacer(Modifier.height(16.dp))
+   Text("ОБЗОР",fontSize=11.sp,color=Muted,modifier=Modifier.padding(horizontal=22.dp,vertical=8.dp))
+   NavItem("Главная",Icons.Outlined.Home){page="home";scope.launch{drawer.close()}}
+   NavItem("Каталог",Icons.Outlined.GridView){page="home";scope.launch{drawer.close()}}
+   NavItem("Мои чаты",Icons.Outlined.Forum){page="chats";scope.launch{drawer.close()}}
+   Spacer(Modifier.weight(1f))
+   NavItem("Настройки AI",Icons.Outlined.Settings){showSettings=true;scope.launch{drawer.close()}}
+   Text("Сообщения в NEBULA бесплатны. Тарифы API зависят от провайдера.",fontSize=11.sp,color=Muted,modifier=Modifier.padding(20.dp))
+  }
+ }) {
+  Column(Modifier.fillMaxSize().background(Bg)) {
+   Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=14.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically) {
+    IconButton(onClick={scope.launch{drawer.open()}}){Icon(Icons.Outlined.Menu,"Меню")}
+    Text("NEBULA",fontSize=25.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
+    Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.Bolt,null,tint=Yellow,modifier=Modifier.padding(10.dp).size(22.dp))}
+    Spacer(Modifier.width(9.dp))
+    Surface(color=Purple,shape=RoundedCornerShape(12.dp),modifier=Modifier.clickable{showSettings=true}) {
+     Text("API ⚙",fontSize=13.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(horizontal=14.dp,vertical=11.dp))
+    }
+   }
+   when(page) {
+    "home" -> Home(category,{category=it},search,{search=it}) { person ->
+     selected=person; lines.clear(); error=""
+     lines.add(Line(false,"Привет. Я ${person.name}. О чём поговорим?")); page="chat"
+    }
+    "create" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) {
+     Text("‹  НАЗАД",color=Purple,modifier=Modifier.clickable{page="home"})
+     Spacer(Modifier.height(22.dp)); Text("НОВЫЙ ПЕРСОНАЖ",fontSize=24.sp,fontWeight=FontWeight.Black)
+     Text("Создай собеседника со своим характером.",color=Muted,modifier=Modifier.padding(vertical=8.dp))
+     Text("ИМЯ",fontSize=11.sp,color=Muted); FieldInput(name,{name=it},"Например, Акира")
+     Spacer(Modifier.height(15.dp)); Text("ХАРАКТЕР И ОПИСАНИЕ",fontSize=11.sp,color=Muted)
+     FieldInput(bio,{bio=it},"Опиши личность и манеру общения",true)
+     Spacer(Modifier.height(22.dp))
+     Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();lines.add(Line(false,"Привет! Я ${selected.name}."));page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
+    }
+    "chat" -> Column(Modifier.fillMaxSize()) {
+     Row(Modifier.fillMaxWidth().background(Card).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+      IconButton(onClick={page="home"}){Icon(Icons.Outlined.ArrowBack,null)}
+      Column(Modifier.weight(1f)){Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text("Персонаж NEBULA",fontSize=11.sp,color=Muted)}
+      Icon(Icons.Outlined.MoreVert,null,tint=Muted)
+     }
+     LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal=14.dp),contentPadding=PaddingValues(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+      items(lines){line->Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start){
+       Surface(color=if(line.user)Purple else Card,shape=RoundedCornerShape(17.dp),modifier=Modifier.widthIn(max=310.dp)){Text(line.text,modifier=Modifier.padding(14.dp))}
+      }}
+      if(busy)item{Text("${selected.name} печатает…",color=Muted)}
+      if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp)}
+     }
+     Row(Modifier.fillMaxWidth().background(Card).padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+      Surface(color=Field,shape=RoundedCornerShape(22.dp),modifier=Modifier.weight(1f)) {
+       BasicTextField(input,{input=it},modifier=Modifier.padding(horizontal=15.dp,vertical=14.dp),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=15.sp),decorationBox={inner->if(input.isEmpty())Text("Написать сообщение…",color=Muted);inner()})
+      }
+      Spacer(Modifier.width(8.dp))
+      IconButton(enabled=input.isNotBlank()&&!busy,onClick={
+       val sent=input.trim();input="";lines.add(Line(true,sent));busy=true;error=""
+       scope.launch{try{lines.add(Line(false,askAi(base,model,apiKey,selected.name,lines.toList())))}catch(e:Exception){error=e.message?:"Ошибка API"}finally{busy=false}}
+      },modifier=Modifier.background(Purple,RoundedCornerShape(14.dp))){Icon(Icons.Outlined.Send,"Отправить",tint=Color.White)}
+     }
+    }
+    else -> Column(Modifier.padding(22.dp)){Text("МОИ ЧАТЫ",fontSize=24.sp,fontWeight=FontWeight.Black);Text("История диалогов появится здесь.",color=Muted);Button(onClick={page="home"}){Text("К персонажам")}}
+   }
+  }
+ }
+ if(showSettings) AlertDialog(onDismissRequest={showSettings=false},containerColor=Card,title={Text("Подключение AI")},text={
+  Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+   Text("Адрес API",color=Muted,fontSize=12.sp);FieldInput(base,{base=it},"https://provider.example/v1")
+   Text("Модель",color=Muted,fontSize=12.sp);FieldInput(model,{model=it},"Название модели")
+   Text("API-ключ",color=Muted,fontSize=12.sp);FieldInput(apiKey,{apiKey=it},"Ключ провайдера")
+   Text("В приложении нет платных сообщений. API-провайдер может взимать плату за запросы. Не публикуй APK с личным ключом.",fontSize=11.sp,color=Muted)
+  }
+ },confirmButton={TextButton(onClick={save(base,model,apiKey);showSettings=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={showSettings=false}){Text("Отмена")}})
 }
 
-private data class ChatLine(val user: Boolean, val text: String)
-
-@Composable
-private fun NebulaApp(initialBase: String, initialModel: String, initialKey: String, save: (String, String, String) -> Unit) {
-    var page by remember { mutableStateOf("home") }
-    var character by remember { mutableStateOf("Астра") }
-    var base by remember { mutableStateOf(initialBase) }
-    var model by remember { mutableStateOf(initialModel) }
-    var key by remember { mutableStateOf(initialKey) }
-    var settings by remember { mutableStateOf(false) }
-    var input by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    val messages = remember { mutableStateListOf<ChatLine>() }
-
-    Column(Modifier.fillMaxSize().background(Night).padding(18.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("NEBULA", fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text("AI CHARACTER UNIVERSE", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
-            }
-            Text("⚙", color = Violet, fontSize = 26.sp, modifier = Modifier.clickable { settings = true }.padding(8.dp))
-        }
-        Spacer(Modifier.height(24.dp))
-        when (page) {
-            "home" -> {
-                Text("ТВОЯ ВСЕЛЕННАЯ", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                Text("Выбери персонажа для общения", color = Muted, modifier = Modifier.padding(top = 5.dp, bottom = 18.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Все", "ОС", "Аниме", "Игры").forEach {
-                        Surface(color = if (it == "Все") Violet else Panel, shape = RoundedCornerShape(18.dp)) {
-                            Text(it, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp))
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                CharacterCard("Астра", "Спокойная, наблюдательная, с тонким чувством юмора.", "ОС") {
-                    character = "Астра"; messages.clear(); messages.add(ChatLine(false, "Привет! Я Астра. О чём поговорим?")); page = "chat"
-                }
-                CharacterCard("Рэй", "Энергичный собеседник, любит приключения и идеи.", "Фэнтези") {
-                    character = "Рэй"; messages.clear(); messages.add(ChatLine(false, "Привет! Я Рэй. Придумаем приключение?")); page = "chat"
-                }
-                OutlinedButton(onClick = { page = "create" }, modifier = Modifier.fillMaxWidth()) { Text("+ Создать персонажа") }
-            }
-            "create" -> {
-                var name by remember { mutableStateOf("") }
-                var description by remember { mutableStateOf("") }
-                Text("НОВЫЙ ПЕРСОНАЖ", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(18.dp))
-                NebulaField(name, { name = it }, "Имя персонажа")
-                Spacer(Modifier.height(12.dp))
-                NebulaField(description, { description = it }, "Характер и описание", true)
-                Spacer(Modifier.height(18.dp))
-                Button(onClick = {
-                    character = name.ifBlank { "Новый персонаж" }
-                    messages.clear()
-                    messages.add(ChatLine(false, "Привет! Я " + character + ". Давай познакомимся."))
-                    page = "chat"
-                }, modifier = Modifier.fillMaxWidth()) { Text("Начать общение") }
-                TextButton(onClick = { page = "home" }) { Text("Назад") }
-            }
-            else -> {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("‹", color = Violet, fontSize = 30.sp, modifier = Modifier.clickable { page = "home" }.padding(end = 12.dp))
-                    Column {
-                        Text(character, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("Персонаж NEBULA", color = Muted, fontSize = 12.sp)
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(messages) { line ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = if (line.user) Arrangement.End else Arrangement.Start) {
-                            Surface(color = if (line.user) Color(0xFF392B61) else Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.widthIn(max = 300.dp)) {
-                                Text(line.text, modifier = Modifier.padding(13.dp))
-                            }
-                        }
-                    }
-                    if (busy) item { Text(character + " печатает…", color = Muted) }
-                    if (error.isNotBlank()) item { Text(error, color = Color(0xFFFF8B8B), fontSize = 12.sp) }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f).background(Panel, RoundedCornerShape(22.dp)).padding(14.dp)) {
-                        BasicTextField(input, { input = it }, modifier = Modifier.fillMaxWidth(),
-                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
-                            decorationBox = { inner -> if (input.isEmpty()) Text("Написать сообщение…", color = Muted); inner() })
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Button(enabled = input.isNotBlank() && !busy, onClick = {
-                        val sent = input.trim(); input = ""; messages.add(ChatLine(true, sent)); error = ""; busy = true
-                        scope.launch {
-                            try { messages.add(ChatLine(false, requestAi(base, model, key, character, messages.toList()))) }
-                            catch (e: Exception) { error = e.message ?: "Не удалось получить ответ. Проверь API и интернет." }
-                            finally { busy = false }
-                        }
-                    }) { Text("➤") }
-                }
-            }
-        }
-    }
-    if (settings) {
-        AlertDialog(onDismissRequest = { settings = false }, title = { Text("Настройки AI") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("API URL", color = Muted); NebulaField(base, { base = it }, "https://provider.example/v1")
-                    Text("Модель", color = Muted); NebulaField(model, { model = it }, "Название модели")
-                    Text("API-ключ", color = Muted); NebulaField(key, { key = it }, "Ключ провайдера")
-                    Text("Ключ хранится на устройстве. Не публикуй APK с личным ключом.", color = Muted, fontSize = 11.sp)
-                }
-            },
-            confirmButton = { TextButton(onClick = { save(base, model, key); settings = false }) { Text("Сохранить") } },
-            dismissButton = { TextButton(onClick = { settings = false }) { Text("Отмена") } })
-    }
+@Composable private fun NavItem(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
+ Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=20.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Muted);Spacer(Modifier.width(18.dp));Text(label,fontSize=16.sp)}
 }
-
-@Composable
-private fun CharacterCard(name: String, description: String, tag: String, onClick: () -> Unit) {
-    Surface(color = Panel, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).clickable { onClick() }) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(58.dp).background(Color(0xFF33264F), RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
-                Text(name.take(1), color = Violet, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            }
-            Column(Modifier.weight(1f).padding(start = 13.dp)) {
-                Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = Muted, fontSize = 12.sp)
-                Text(tag.uppercase(), color = Violet, fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp))
-            }
-            Text("›", color = Violet, fontSize = 28.sp)
-        }
-    }
+@Composable private fun Home(category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onOpen:(Person)->Unit){
+ val categories=listOf("Все","Аниме","Игры","ОС","Фэнтези","Реализм")
+ val shown=people.filter{(category=="Все"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom=24.dp)){
+  Spacer(Modifier.height(22.dp));Text("НАЙДИ СВОЮ ИСТОРИЮ",fontSize=24.sp,fontWeight=FontWeight.Black,modifier=Modifier.padding(horizontal=22.dp))
+  Text("Выбери собеседника и начни общение",color=Muted,fontSize=14.sp,modifier=Modifier.padding(horizontal=22.dp,vertical=5.dp))
+  Spacer(Modifier.height(16.dp))
+  Surface(color=Field,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
+   Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Search,null,tint=Muted);Spacer(Modifier.width(10.dp));BasicTextField(search,onSearch,modifier=Modifier.weight(1f),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White),decorationBox={inner->if(search.isEmpty())Text("Поиск персонажей…",color=Muted);inner()})}
+  }
+  Spacer(Modifier.height(22.dp));Heading("🔥  ПОПУЛЯРНЫЕ КАТЕГОРИИ")
+  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=22.dp),horizontalArrangement=Arrangement.spacedBy(9.dp)){
+   categories.forEach{item->Surface(color=if(category==item)Purple else Card,shape=RoundedCornerShape(13.dp),modifier=Modifier.clickable{onCategory(item)}){Text(item,modifier=Modifier.padding(horizontal=18.dp,vertical=13.dp),fontWeight=FontWeight.SemiBold)}}
+  }
+  Spacer(Modifier.height(22.dp));Heading("✦  ПЕРСОНАЖИ ДЛЯ ТЕБЯ")
+  shown.forEachIndexed{index,p->PersonCard(p,index,onOpen)}
+  if(shown.isEmpty())Text("Ничего не найдено.",color=Muted,modifier=Modifier.padding(22.dp))
+  Spacer(Modifier.height(18.dp));Heading("ТВОИ ПЕРСОНАЖИ")
+  Surface(color=Card,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
+   Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.AddCircleOutline,null,tint=Purple,modifier=Modifier.size(30.dp));Spacer(Modifier.width(12.dp));Column{Text("Создай собственного собеседника",fontWeight=FontWeight.Bold);Text("Настрой имя и характер",color=Muted,fontSize=12.sp)}}
+  }
+ }
 }
-
-@Composable
-private fun NebulaField(value: String, onChange: (String) -> Unit, hint: String, multiline: Boolean = false) {
-    OutlinedTextField(value, onChange, placeholder = { Text(hint) }, modifier = Modifier.fillMaxWidth(),
-        minLines = if (multiline) 3 else 1, maxLines = if (multiline) 5 else 1)
+@Composable private fun Heading(text:String){Text(text,fontSize=17.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=22.dp,vertical=12.dp))}
+@Composable private fun PersonCard(p:Person,index:Int,onOpen:(Person)->Unit){
+ val colors=listOf(Color(0xFF544052),Color(0xFF35465A),Color(0xFF66513C),Color(0xFF443B60))
+ Surface(color=Card,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=6.dp).clickable{onOpen(p)}){
+  Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
+   Box(Modifier.size(100.dp).background(Brush.linearGradient(listOf(colors[index%4],Bg)),RoundedCornerShape(13.dp)),contentAlignment=Alignment.Center){Text(p.initials,fontSize=30.sp,fontWeight=FontWeight.Black)}
+   Column(Modifier.weight(1f).padding(start=13.dp)){Text(p.name,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(p.creator,color=Yellow,fontSize=12.sp);Text(p.bio,color=Muted,fontSize=12.sp,maxLines=2);Spacer(Modifier.height(7.dp));Text(p.category.uppercase(),color=Purple,fontSize=10.sp,fontWeight=FontWeight.Bold)}
+   Icon(Icons.Outlined.ChevronRight,null,tint=Muted)
+  }
+ }
 }
-
-private suspend fun requestAi(base: String, model: String, key: String, character: String, history: List<ChatLine>): String =
-    withContext(Dispatchers.IO) {
-        require(base.isNotBlank() && model.isNotBlank() && key.isNotBlank()) { "Открой ⚙ и укажи API URL, модель и ключ." }
-        val payload = JSONArray()
-        payload.put(JSONObject().put("role", "system").put("content", "Ты персонаж по имени " + character + ". Общайся естественно и сохраняй характер."))
-        history.takeLast(20).forEach { line ->
-            payload.put(JSONObject().put("role", if (line.user) "user" else "assistant").put("content", line.text))
-        }
-        val json = JSONObject().put("model", model).put("messages", payload).put("temperature", 0.85).toString()
-        val body = json.toRequestBody("application/json; charset=utf-8".toMediaType())
-        val request = Request.Builder().url(base.trimEnd('/') + "/chat/completions")
-            .header("Authorization", "Bearer " + key).post(body).build()
-        val client = OkHttpClient.Builder().callTimeout(60, TimeUnit.SECONDS).build()
-        client.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw IllegalStateException("API вернул " + response.code + ": " + raw.take(200))
-            JSONObject(raw).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
-        }
-    }
+@Composable private fun FieldInput(value:String,onChange:(String)->Unit,hint:String,multi:Boolean=false){
+ OutlinedTextField(value,onChange,placeholder={Text(hint,color=Muted)},modifier=Modifier.fillMaxWidth(),minLines=if(multi)4 else 1,maxLines=if(multi)6 else 1,colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Purple,unfocusedBorderColor=Color(0xFF555555),focusedTextColor=Color.White,unfocusedTextColor=Color.White))
+}
+private suspend fun askAi(base:String,model:String,key:String,character:String,history:List<Line>):String=withContext(Dispatchers.IO){
+ require(base.isNotBlank()&&model.isNotBlank()&&key.isNotBlank()){"Открой настройки API и укажи адрес, модель и ключ."}
+ val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Общайся естественно и сохраняй характер."))
+ history.takeLast(20).forEach{msgs.put(JSONObject().put("role",if(it.user)"user" else "assistant").put("content",it.text))}
+ val body=JSONObject().put("model",model).put("messages",msgs).put("temperature",0.85).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+ val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").post(body).build()
+ OkHttpClient.Builder().callTimeout(60,TimeUnit.SECONDS).build().newCall(req).execute().use{res->
+  val raw=res.body?.string().orEmpty();if(!res.isSuccessful)throw IllegalStateException("API ${res.code}: ${raw.take(180)}")
+  JSONObject(raw).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+ }
+}
