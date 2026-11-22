@@ -3,6 +3,13 @@ package ai.nebula.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
@@ -43,7 +50,7 @@ class MainActivity : ComponentActivity() {
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
-    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","openai/gpt-5.5")!!, p.getString("key","")!!) { b,m,k ->
+    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","openai/gpt-5.5-pro")!!, p.getString("key","")!!) { b,m,k ->
      p.edit().putString("base",b).putString("model",m).putString("key",k).apply()
     }
    }
@@ -105,7 +112,14 @@ private val people = listOf(
      Text("API ⚙",fontSize=13.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(horizontal=14.dp,vertical=11.dp))
     }
    }
-   when(page) {
+   AnimatedContent(
+    targetState=page,
+    label="nebula-page-transition",
+    transitionSpec={
+     (fadeIn(tween(190)) + slideInHorizontally(tween(220)){it/12}) togetherWith
+      (fadeOut(tween(130)) + slideOutHorizontally(tween(170)){-it/16})
+    }
+   ) { currentPage -> when(currentPage) {
     "home" -> Home(category,{category=it},search,{search=it}) { person ->
      selected=person; lines.clear(); error=""
      lines.add(Line(false,"Привет. Я ${person.name}. О чём поговорим?")); page="chat"
@@ -145,6 +159,7 @@ private val people = listOf(
      }
     }
     else -> Column(Modifier.padding(22.dp)){Text("МОИ ЧАТЫ",fontSize=24.sp,fontWeight=FontWeight.Black);Text("История диалогов появится здесь.",color=Muted);Button(onClick={page="home"}){Text("К персонажам")}}
+   }
    }
   }
  }
