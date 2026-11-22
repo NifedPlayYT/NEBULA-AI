@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,19 +29,20 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-private val Bg = Color(0xFF202020)
-private val Card = Color(0xFF2B2B2B)
-private val Field = Color(0xFF363636)
-private val Purple = Color(0xFF8860F5)
-private val Yellow = Color(0xFFFFC85A)
-private val Muted = Color(0xFFAAA7B0)
+private val Bg = Color(0xFF101018)
+private val Card = Color(0xFF1B1B29)
+private val Field = Color(0xFF252536)
+private val Purple = Color(0xFF9B7BFF)
+private val Yellow = Color(0xFFFFD27A)
+private val Muted = Color(0xFFAAA9BD)
+private val Border = Color(0xFF303047)
 
 class MainActivity : ComponentActivity() {
  override fun onCreate(savedInstanceState: Bundle?) {
   super.onCreate(savedInstanceState)
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
-   MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, onBackground=Color.White, onSurface=Color.White)) {
+   MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
     Nebula(p.getString("base","https://api.openai.com/v1")!!, p.getString("model","gpt-4o-mini")!!, p.getString("key","")!!) { b,m,k ->
      p.edit().putString("base",b).putString("model",m).putString("key",k).apply()
     }
@@ -78,7 +80,7 @@ private val people = listOf(
  ModalNavigationDrawer(drawerState=drawer, drawerContent={
   ModalDrawerSheet(drawerContainerColor=Card) {
    Spacer(Modifier.height(20.dp))
-   Text("NEBULA",fontSize=28.sp,fontWeight=FontWeight.Black,modifier=Modifier.padding(horizontal=22.dp))
+   Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=20.dp)){BrandMark(38);Spacer(Modifier.width(10.dp));Text("NEBULA",fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=1.5.sp)}
    Text("ТВОЯ ВСЕЛЕННАЯ ИСТОРИЙ",fontSize=10.sp,color=Muted,letterSpacing=1.5.sp,modifier=Modifier.padding(horizontal=22.dp))
    Spacer(Modifier.height(26.dp))
    Text("СОЗДАТЬ",fontSize=11.sp,color=Muted,modifier=Modifier.padding(horizontal=22.dp,vertical=8.dp))
@@ -94,9 +96,9 @@ private val people = listOf(
   }
  }) {
   Column(Modifier.fillMaxSize().background(Bg)) {
-   Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=14.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically) {
-    IconButton(onClick={scope.launch{drawer.open()}}){Icon(Icons.Outlined.Menu,"Меню")}
-    Text("NEBULA",fontSize=25.sp,fontWeight=FontWeight.Black,modifier=Modifier.weight(1f))
+   Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=12.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
+    IconButton(onClick={scope.launch{drawer.open()}}){Icon(Icons.Outlined.Menu,"Меню",tint=Muted)}
+    BrandMark(34); Spacer(Modifier.width(9.dp)); Text("NEBULA",fontSize=22.sp,fontWeight=FontWeight.Black,letterSpacing=1.3.sp,modifier=Modifier.weight(1f))
     Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.Bolt,null,tint=Yellow,modifier=Modifier.padding(10.dp).size(22.dp))}
     Spacer(Modifier.width(9.dp))
     Surface(color=Purple,shape=RoundedCornerShape(12.dp),modifier=Modifier.clickable{showSettings=true}) {
@@ -138,7 +140,7 @@ private val people = listOf(
       Spacer(Modifier.width(8.dp))
       IconButton(enabled=input.isNotBlank()&&!busy,onClick={
        val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error=""
-       scope.launch{try{askAiStream(base,model,apiKey,selected.name,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{busy=false}}
+       scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{busy=false}}
       },modifier=Modifier.background(Purple,RoundedCornerShape(14.dp))){Icon(Icons.Outlined.Send,"Отправить",tint=Color.White)}
      }
     }
@@ -163,10 +165,16 @@ private val people = listOf(
  val categories=listOf("Все","Аниме","Игры","ОС","Фэнтези","Реализм")
  val shown=people.filter{(category=="Все"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom=24.dp)){
-  Spacer(Modifier.height(22.dp));Text("НАЙДИ СВОЮ ИСТОРИЮ",fontSize=24.sp,fontWeight=FontWeight.Black,modifier=Modifier.padding(horizontal=22.dp))
-  Text("Выбери собеседника и начни общение",color=Muted,fontSize=14.sp,modifier=Modifier.padding(horizontal=22.dp,vertical=5.dp))
+  Spacer(Modifier.height(22.dp))
+  Column(Modifier.fillMaxWidth().padding(horizontal=22.dp).background(Brush.linearGradient(listOf(Color(0xFF342957),Color(0xFF1D1D30),Bg)),RoundedCornerShape(22.dp)).padding(18.dp)){
+   Text("ТВОЯ ВСЕЛЕННАЯ",fontSize=10.sp,color=Yellow,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
+   Spacer(Modifier.height(7.dp))
+   Text("Найди свою историю",fontSize=27.sp,fontWeight=FontWeight.Black,lineHeight=31.sp)
+   Text("Персонажи, с которыми хочется говорить.",color=Muted,fontSize=13.sp,modifier=Modifier.padding(top=6.dp))
+   Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(top=15.dp)){BrandMark(26);Text("  NEBULA AI",fontSize=11.sp,color=Color.White.copy(alpha=.8f),letterSpacing=1.4.sp)}
+  }
   Spacer(Modifier.height(16.dp))
-  Surface(color=Field,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
+  Surface(color=Field,shape=RoundedCornerShape(16.dp),border=Border,modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
    Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Search,null,tint=Muted);Spacer(Modifier.width(10.dp));BasicTextField(search,onSearch,modifier=Modifier.weight(1f),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White),decorationBox={inner->if(search.isEmpty())Text("Поиск персонажей…",color=Muted);inner()})}
   }
   Spacer(Modifier.height(22.dp));Heading("🔥  ПОПУЛЯРНЫЕ КАТЕГОРИИ")
@@ -184,21 +192,45 @@ private val people = listOf(
 }
 @Composable private fun Heading(text:String){Text(text,fontSize=17.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=22.dp,vertical=12.dp))}
 @Composable private fun PersonCard(p:Person,index:Int,onOpen:(Person)->Unit){
- val colors=listOf(Color(0xFF544052),Color(0xFF35465A),Color(0xFF66513C),Color(0xFF443B60))
- Surface(color=Card,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=6.dp).clickable{onOpen(p)}){
+ Surface(color=Card,shape=RoundedCornerShape(20.dp),border=Border,modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=6.dp).clickable{onOpen(p)}){
   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
-   Box(Modifier.size(100.dp).background(Brush.linearGradient(listOf(colors[index%4],Bg)),RoundedCornerShape(13.dp)),contentAlignment=Alignment.Center){Text(p.initials,fontSize=30.sp,fontWeight=FontWeight.Black)}
-   Column(Modifier.weight(1f).padding(start=13.dp)){Text(p.name,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(p.creator,color=Yellow,fontSize=12.sp);Text(p.bio,color=Muted,fontSize=12.sp,maxLines=2);Spacer(Modifier.height(7.dp));Text(p.category.uppercase(),color=Purple,fontSize=10.sp,fontWeight=FontWeight.Bold)}
+   PortraitAvatar(index,104)
+   Column(Modifier.weight(1f).padding(start=14.dp)){Text(p.name,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(p.creator,color=Yellow,fontSize=11.sp);Text(p.bio,color=Muted,fontSize=12.sp,lineHeight=16.sp,maxLines=2);Spacer(Modifier.height(8.dp));Surface(color=Purple.copy(alpha=.16f),shape=RoundedCornerShape(7.dp)){Text(p.category.uppercase(),color=Purple,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=8.dp,vertical=4.dp))}}
    Icon(Icons.Outlined.ChevronRight,null,tint=Muted)
   }
+ }
+}
+
+@Composable private fun BrandMark(size:Int){
+ Box(Modifier.size(size.dp).background(Brush.linearGradient(listOf(Color(0xFFB79CFF),Color(0xFF7651E8))),RoundedCornerShape((size/3).dp)),contentAlignment=Alignment.Center){
+  Icon(Icons.Outlined.AutoAwesome,null,tint=Color.White,modifier=Modifier.size((size*.62f).dp))
+ }
+}
+
+@Composable private fun PortraitAvatar(index:Int,size:Int){
+ val palettes=listOf(
+  listOf(Color(0xFF8A6BFF),Color(0xFF32254E),Color(0xFFE7BDAA),Color(0xFF242033)),
+  listOf(Color(0xFF4F9DB2),Color(0xFF203E53),Color(0xFFE7C3A8),Color(0xFF26313F)),
+  listOf(Color(0xFFE0A45D),Color(0xFF65412E),Color(0xFFDDAF91),Color(0xFF2E2525)),
+  listOf(Color(0xFFB77BE5),Color(0xFF46305F),Color(0xFFF0C9B7),Color(0xFF30263B))
+ )
+ val p=palettes[index%palettes.size]
+ Box(Modifier.size(size.dp).background(Brush.linearGradient(listOf(p[0],p[1])),RoundedCornerShape(16.dp)),contentAlignment=Alignment.Center){
+  Box(Modifier.fillMaxWidth(.72f).height((size*.66f).dp).align(Alignment.BottomCenter).background(p[3],RoundedCornerShape(topStart=50.dp,topEnd=50.dp,bottomStart=12.dp,bottomEnd=12.dp)))
+  Box(Modifier.size((size*.53f).dp).offset(y=(-size*.02f).dp).background(p[2],RoundedCornerShape(42.dp)))
+  Box(Modifier.size((size*.59f).dp).height((size*.29f).dp).align(Alignment.TopCenter).offset(y=(size*.13f).dp).background(p[3],RoundedCornerShape(topStart=40.dp,topEnd=40.dp,bottomStart=13.dp,bottomEnd=13.dp)))
+  Row(Modifier.align(Alignment.Center).offset(y=(size*.035f).dp),horizontalArrangement=Arrangement.spacedBy((size*.14f).dp)){
+   repeat(2){Box(Modifier.size((size*.045f).dp).background(Color(0xFF29202A),CircleShape))}
+  }
+  Box(Modifier.size((size*.10f).dp).align(Alignment.Center).offset(y=(size*.17f).dp).background(Color(0xFFB77E79),CircleShape))
  }
 }
 @Composable private fun FieldInput(value:String,onChange:(String)->Unit,hint:String,multi:Boolean=false){
  OutlinedTextField(value,onChange,placeholder={Text(hint,color=Muted)},modifier=Modifier.fillMaxWidth(),minLines=if(multi)4 else 1,maxLines=if(multi)6 else 1,colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Purple,unfocusedBorderColor=Color(0xFF555555),focusedTextColor=Color.White,unfocusedTextColor=Color.White))
 }
-private suspend fun askAiStream(base:String,model:String,key:String,character:String,history:List<Line>,onChunk:(String)->Unit)=withContext(Dispatchers.IO){
+private suspend fun askAiStream(base:String,model:String,key:String,character:String,personality:String,history:List<Line>,onChunk:(String)->Unit)=withContext(Dispatchers.IO){
  require(base.isNotBlank()&&model.isNotBlank()&&key.isNotBlank()){"Открой настройки API и укажи адрес, модель и ключ."}
- val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
+ val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Твоя личность и характер: ${personality.ifBlank { "Самостоятельно поддерживай естественный характер и последовательный стиль общения." }}. Строго придерживайся этой личности в каждом ответе. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
  history.takeLast(16).forEach{msgs.put(JSONObject().put("role",if(it.user)"user" else "assistant").put("content",it.text))}
  val body=JSONObject().put("model",model).put("messages",msgs).put("temperature",0.75).put("max_tokens",350).put("stream",true).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
  val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").header("Accept","text/event-stream").post(body).build()
