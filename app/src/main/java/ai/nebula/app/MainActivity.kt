@@ -174,7 +174,7 @@ private val people = listOf(
    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(top=15.dp)){BrandMark(26);Text("  NEBULA AI",fontSize=11.sp,color=Color.White.copy(alpha=.8f),letterSpacing=1.4.sp)}
   }
   Spacer(Modifier.height(16.dp))
-  Surface(color=Field,shape=RoundedCornerShape(16.dp),border=Border,modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
+  Surface(color=Field,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
    Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Search,null,tint=Muted);Spacer(Modifier.width(10.dp));BasicTextField(search,onSearch,modifier=Modifier.weight(1f),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White),decorationBox={inner->if(search.isEmpty())Text("Поиск персонажей…",color=Muted);inner()})}
   }
   Spacer(Modifier.height(22.dp));Heading("🔥  ПОПУЛЯРНЫЕ КАТЕГОРИИ")
