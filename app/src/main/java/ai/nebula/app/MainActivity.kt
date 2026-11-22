@@ -192,7 +192,7 @@ private val people = listOf(
 }
 @Composable private fun Heading(text:String){Text(text,fontSize=17.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=22.dp,vertical=12.dp))}
 @Composable private fun PersonCard(p:Person,index:Int,onOpen:(Person)->Unit){
- Surface(color=Card,shape=RoundedCornerShape(20.dp),border=Border,modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=6.dp).clickable{onOpen(p)}){
+ Surface(color=Card,shape=RoundedCornerShape(20.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=6.dp).clickable{onOpen(p)}){
   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
    PortraitAvatar(index,104)
    Column(Modifier.weight(1f).padding(start=14.dp)){Text(p.name,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(p.creator,color=Yellow,fontSize=11.sp);Text(p.bio,color=Muted,fontSize=12.sp,lineHeight=16.sp,maxLines=2);Spacer(Modifier.height(8.dp));Surface(color=Purple.copy(alpha=.16f),shape=RoundedCornerShape(7.dp)){Text(p.category.uppercase(),color=Purple,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=8.dp,vertical=4.dp))}}
