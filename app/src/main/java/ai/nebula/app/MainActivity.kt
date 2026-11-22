@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
-    Nebula(p.getString("base","https://api.openai.com/v1")!!, p.getString("model","gpt-4o-mini")!!, p.getString("key","")!!) { b,m,k ->
+    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","openai/gpt-5.5")!!, p.getString("key","")!!) { b,m,k ->
      p.edit().putString("base",b).putString("model",m).putString("key",k).apply()
     }
    }
