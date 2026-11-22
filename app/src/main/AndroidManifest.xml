@@ -3,6 +3,8 @@
     <application
         android:allowBackup="true"
         android:label="NEBULA AI"
+        android:icon="@drawable/ic_nebula"
+        android:roundIcon="@drawable/ic_nebula"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity
