@@ -137,8 +137,8 @@ private val people = listOf(
       }
       Spacer(Modifier.width(8.dp))
       IconButton(enabled=input.isNotBlank()&&!busy,onClick={
-       val sent=input.trim();input="";lines.add(Line(true,sent));busy=true;error=""
-       scope.launch{try{lines.add(Line(false,askAi(base,model,apiKey,selected.name,lines.toList())))}catch(e:Exception){error=e.message?:"Ошибка API"}finally{busy=false}}
+       val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error=""
+       scope.launch{try{askAiStream(base,model,apiKey,selected.name,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{busy=false}}
       },modifier=Modifier.background(Purple,RoundedCornerShape(14.dp))){Icon(Icons.Outlined.Send,"Отправить",tint=Color.White)}
      }
     }
@@ -196,14 +196,25 @@ private val people = listOf(
 @Composable private fun FieldInput(value:String,onChange:(String)->Unit,hint:String,multi:Boolean=false){
  OutlinedTextField(value,onChange,placeholder={Text(hint,color=Muted)},modifier=Modifier.fillMaxWidth(),minLines=if(multi)4 else 1,maxLines=if(multi)6 else 1,colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Purple,unfocusedBorderColor=Color(0xFF555555),focusedTextColor=Color.White,unfocusedTextColor=Color.White))
 }
-private suspend fun askAi(base:String,model:String,key:String,character:String,history:List<Line>):String=withContext(Dispatchers.IO){
+private suspend fun askAiStream(base:String,model:String,key:String,character:String,history:List<Line>,onChunk:(String)->Unit)=withContext(Dispatchers.IO){
  require(base.isNotBlank()&&model.isNotBlank()&&key.isNotBlank()){"Открой настройки API и укажи адрес, модель и ключ."}
- val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Общайся естественно и сохраняй характер."))
- history.takeLast(20).forEach{msgs.put(JSONObject().put("role",if(it.user)"user" else "assistant").put("content",it.text))}
- val body=JSONObject().put("model",model).put("messages",msgs).put("temperature",0.85).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
- val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").post(body).build()
- OkHttpClient.Builder().callTimeout(60,TimeUnit.SECONDS).build().newCall(req).execute().use{res->
-  val raw=res.body?.string().orEmpty();if(!res.isSuccessful)throw IllegalStateException("API ${res.code}: ${raw.take(180)}")
-  JSONObject(raw).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+ val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
+ history.takeLast(16).forEach{msgs.put(JSONObject().put("role",if(it.user)"user" else "assistant").put("content",it.text))}
+ val body=JSONObject().put("model",model).put("messages",msgs).put("temperature",0.75).put("max_tokens",350).put("stream",true).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+ val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").header("Accept","text/event-stream").post(body).build()
+ val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(90,TimeUnit.SECONDS).callTimeout(100,TimeUnit.SECONDS).build()
+ client.newCall(req).execute().use{res->
+  if(!res.isSuccessful){val raw=res.body?.string().orEmpty();throw IllegalStateException("API ${res.code}: ${raw.take(180)}")}
+  val source=res.body?.source()?:throw IllegalStateException("Пустой ответ API")
+  while(!source.exhausted()){
+   val line=source.readUtf8Line()?:break
+   if(!line.startsWith("data:"))continue
+   val data=line.removePrefix("data:").trim()
+   if(data=="[DONE]")break
+   try{
+    val delta=JSONObject(data).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")?.optString("content").orEmpty()
+    if(delta.isNotEmpty())withContext(Dispatchers.Main){onChunk(delta)}
+   }catch(_:org.json.JSONException){}
+  }
  }
 }
