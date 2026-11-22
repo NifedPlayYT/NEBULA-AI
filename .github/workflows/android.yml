@@ -6,7 +6,7 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -23,10 +23,29 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          VERSION="0.1.${GITHUB_RUN_NUMBER}"
+          CODE="${GITHUB_RUN_NUMBER}"
+          sed -i "s/versionCode = .*/versionCode = ${CODE}/" app/build.gradle.kts
+          sed -i "s/versionName = .*/versionName = \"${VERSION}\"/" app/build.gradle.kts
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "apk_name=NEBULA-AI-v${VERSION}.apk" >> "$GITHUB_OUTPUT"
+      - name: Build release APK
         run: gradle assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk "${{ steps.version.outputs.apk_name }}"
+      - name: Publish direct APK release
+        uses: softprops/action-gh-release@v2
         with:
-          name: nebula-ai-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          tag_name: v${{ steps.version.outputs.version }}
+          name: NEBULA AI v${{ steps.version.outputs.version }}
+          body: |
+            NEBULA AI Android build.
+
+            Version: ${{ steps.version.outputs.version }}
+            Build: #${{ github.run_number }}
+          prerelease: true
+          files: ${{ steps.version.outputs.apk_name }}
