@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -142,21 +143,27 @@ private val people = listOf(
     "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=it},{save(base,model,apiKey,cleanModeState);page="home"},{page="home"})
     "profile" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) { Text("ПРОФИЛЬ",fontSize=24.sp,fontWeight=FontWeight.Black); Spacer(Modifier.height(18.dp)); Surface(color=Card,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){BrandMark(72);Text("ТВОЯ ВСЕЛЕННАЯ",fontWeight=FontWeight.Bold);Text("Создавай персонажей и истории.",color=Muted,fontSize=12.sp)}};Spacer(Modifier.height(16.dp));Button(onClick={page="create"},modifier=Modifier.fillMaxWidth()){Text("Создать персонажа")} }
     "chat" -> Column(Modifier.fillMaxSize()) {
-     Row(Modifier.fillMaxWidth().background(Card).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-      IconButton(onClick={page="home"}){Icon(Icons.Outlined.ArrowBack,null)}
-      Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically){PortraitAvatar(people.indexOfFirst{it.name==selected.name}.coerceAtLeast(0),42);Spacer(Modifier.width(10.dp));Column{Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text("Персонаж NEBULA",fontSize=11.sp,color=Muted)}}
-      Icon(Icons.Outlined.MoreVert,null,tint=Muted)
+     val avatarIndex=people.indexOfFirst{it.name==selected.name}.coerceAtLeast(0)
+     val chatListState=rememberLazyListState()
+     LaunchedEffect(lines.size,lines.lastOrNull()?.text,busy,error) {
+      if(lines.isNotEmpty()) chatListState.animateScrollToItem(lines.lastIndex)
      }
-     LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal=14.dp),contentPadding=PaddingValues(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-      items(lines){line->Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start){
-       Surface(color=if(line.user)Color(0xFF8060E8) else Color(0xFF20202E),shape=RoundedCornerShape(topStart=if(line.user)18.dp else 7.dp,topEnd=if(line.user)7.dp else 18.dp,bottomStart=18.dp,bottomEnd=18.dp),border=if(line.user)null else BorderStroke(1.dp,Border),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
+     Row(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF29213F),Card))).padding(horizontal=10.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
+      IconButton(onClick={page="home"}){Icon(Icons.Outlined.ArrowBack,null,tint=Color.White)}
+      Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,44);Spacer(Modifier.width(11.dp));Column{Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text(if(busy) "Сейчас отвечает…" else "На связи · NEBULA AI",fontSize=11.sp,color=if(busy)Yellow else Muted)}}
+      Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.AutoAwesome,null,tint=Purple,modifier=Modifier.padding(10.dp).size(19.dp))}
+     }
+     LazyColumn(state=chatListState,modifier=Modifier.weight(1f).fillMaxWidth().padding(horizontal=12.dp),contentPadding=PaddingValues(vertical=18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+      items(lines){line->Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom){
+       if(!line.user){PortraitAvatar(avatarIndex,29);Spacer(Modifier.width(7.dp))}
+       Surface(color=if(line.user)Color(0xFF7657D6) else Color(0xFF20202E),shape=RoundedCornerShape(topStart=if(line.user)18.dp else 6.dp,topEnd=if(line.user)6.dp else 18.dp,bottomStart=18.dp,bottomEnd=18.dp),border=if(line.user)null else BorderStroke(1.dp,Border),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
       }}
-      if(busy)item{Text("${selected.name} печатает…",color=Muted)}
-      if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp)}
+      if(busy)item{Row(verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,26);Spacer(Modifier.width(8.dp));Surface(color=Card,shape=RoundedCornerShape(14.dp)){Text("Печатает…",color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=13.dp,vertical=9.dp))}}}
+      if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp,modifier=Modifier.padding(start=36.dp))}
      }
-     Row(Modifier.fillMaxWidth().background(Card).padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
-      Surface(color=Field,shape=RoundedCornerShape(22.dp),modifier=Modifier.weight(1f)) {
-       BasicTextField(input,{input=it},modifier=Modifier.padding(horizontal=15.dp,vertical=14.dp),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=15.sp),decorationBox={inner->if(input.isEmpty())Text("Написать сообщение…",color=Muted);inner()})
+     Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=11.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
+      Surface(color=Field,shape=RoundedCornerShape(19.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.weight(1f)) {
+       BasicTextField(input,{input=it},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=15.dp),singleLine=false,maxLines=4,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=15.sp),decorationBox={inner->if(input.isEmpty())Text("Написать сообщение…",color=Muted);inner()})
       }
       Spacer(Modifier.width(8.dp))
       IconButton(enabled=input.isNotBlank()&&!busy,onClick={
