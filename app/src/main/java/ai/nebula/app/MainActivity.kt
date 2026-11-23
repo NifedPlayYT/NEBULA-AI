@@ -33,6 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawImage
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -41,6 +45,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
 import okhttp3.*
@@ -394,36 +400,17 @@ private fun decodeChats(json:String):List<ChatSession> = try {
 }
 
 @Composable private fun PortraitAvatar(index:Int,size:Int){
- val palettes=listOf(
-  listOf(Color(0xFF8A6BFF),Color(0xFF32254E),Color(0xFFE7BDAA),Color(0xFF242033)),
-  listOf(Color(0xFF4F9DB2),Color(0xFF203E53),Color(0xFFE7C3A8),Color(0xFF26313F)),
-  listOf(Color(0xFFE0A45D),Color(0xFF65412E),Color(0xFFDDAF91),Color(0xFF2E2525)),
-  listOf(Color(0xFFB77BE5),Color(0xFF46305F),Color(0xFFF0C9B7),Color(0xFF30263B))
- )
- val p=palettes[index%palettes.size]
- Box(Modifier.size(size.dp).background(Brush.linearGradient(listOf(p[0],p[1])),RoundedCornerShape(16.dp)),contentAlignment=Alignment.Center){
-  Box(Modifier.fillMaxWidth(.72f).height((size*.66f).dp).align(Alignment.BottomCenter).background(p[3],RoundedCornerShape(topStart=50.dp,topEnd=50.dp,bottomStart=12.dp,bottomEnd=12.dp)))
-  Box(Modifier.size((size*.53f).dp).offset(y=(-size*.02f).dp).background(p[2],RoundedCornerShape(42.dp)))
-  Box(Modifier.size((size*.68f).dp).height((size*.28f).dp).align(Alignment.TopCenter).offset(y=(-size*.19f).dp).background(p[3],RoundedCornerShape(topStart=50.dp,topEnd=50.dp,bottomStart=12.dp,bottomEnd=12.dp)))
-  Box(Modifier.size((size*.12f).dp).height((size*.28f).dp).align(Alignment.CenterStart).offset(x=(size*.20f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(8.dp)))
-  Box(Modifier.size((size*.12f).dp).height((size*.28f).dp).align(Alignment.CenterEnd).offset(x=(-size*.20f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(8.dp)))
-  Box(Modifier.size((size*.59f).dp).height((size*.20f).dp).align(Alignment.TopCenter).offset(y=(size*.02f).dp).background(p[3],RoundedCornerShape(topStart=40.dp,topEnd=40.dp,bottomStart=13.dp,bottomEnd=13.dp)))
-  if(index%4==0) {
-   Box(Modifier.size((size*.20f).dp).height((size*.12f).dp).align(Alignment.TopStart).offset(x=(size*.20f).dp,y=(size*.04f).dp).background(p[3],RoundedCornerShape(bottomEnd=18.dp)))
-   Box(Modifier.size((size*.17f).dp).height((size*.18f).dp).align(Alignment.TopEnd).offset(x=(-size*.20f).dp,y=(size*.02f).dp).background(p[3],RoundedCornerShape(bottomStart=18.dp)))
-  } else if(index%4==1) {
-   Box(Modifier.size((size*.10f).dp).height((size*.42f).dp).align(Alignment.CenterStart).offset(x=(size*.13f).dp,y=(size*.12f).dp).background(p[3],RoundedCornerShape(10.dp)))
-   Box(Modifier.size((size*.10f).dp).height((size*.42f).dp).align(Alignment.CenterEnd).offset(x=(-size*.13f).dp,y=(size*.12f).dp).background(p[3],RoundedCornerShape(10.dp)))
-  } else if(index%4==2) {
-   Box(Modifier.size((size*.24f).dp).height((size*.11f).dp).align(Alignment.TopCenter).offset(y=(size*.03f).dp).background(p[3],RoundedCornerShape(8.dp)))
-  } else {
-   Box(Modifier.size((size*.13f).dp).height((size*.25f).dp).align(Alignment.TopStart).offset(x=(size*.22f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(bottomEnd=16.dp)))
-   Box(Modifier.size((size*.13f).dp).height((size*.25f).dp).align(Alignment.TopEnd).offset(x=(-size*.22f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(bottomStart=16.dp)))
-  }
-  Row(Modifier.align(Alignment.Center).offset(y=(size*.035f).dp),horizontalArrangement=Arrangement.spacedBy((size*.14f).dp)){
-   repeat(2){Box(Modifier.size((size*.045f).dp).background(Color(0xFF29202A),CircleShape))}
-  }
-  Box(Modifier.size((size*.10f).dp).align(Alignment.Center).offset(y=(size*.17f).dp).background(Color(0xFFB77E79),CircleShape))
+ val image = ImageBitmap.imageResource(R.drawable.nebula_portraits)
+ val tileWidth = image.width / 2
+ val tileHeight = image.height / 2
+ val tile = ((index % 4) + 4) % 4
+ Canvas(Modifier.size(size.dp).clip(RoundedCornerShape(16.dp))) {
+  drawImage(
+   image = image,
+   srcOffset = IntOffset((tile % 2) * tileWidth, (tile / 2) * tileHeight),
+   srcSize = IntSize(tileWidth, tileHeight),
+   dstSize = IntSize(this.size.width.toInt(), this.size.height.toInt())
+  )
  }
 }
 @Composable private fun FieldInput(value:String,onChange:(String)->Unit,hint:String,multi:Boolean=false){
