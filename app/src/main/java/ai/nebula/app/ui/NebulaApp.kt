@@ -114,6 +114,8 @@ fun NebulaApp(repository: NebulaRepository) {
     var category by remember { mutableStateOf("Все") }
     var newName by remember { mutableStateOf("") }
     var newBio by remember { mutableStateOf("") }
+    var newGreeting by remember { mutableStateOf("") }
+    var newInstructions by remember { mutableStateOf("") }
 
     fun saveSettings(next: AppSettings) {
         settings = next
@@ -133,7 +135,7 @@ fun NebulaApp(repository: NebulaRepository) {
         chatReturnPage = if (page == AppPage.CREATE) AppPage.DISCOVER else page
         selectedCharacter = character
         currentChatId = System.currentTimeMillis().toString()
-        messages = listOf(ChatMessage(false, "Привет. Я " + character.name + ". О чём поговорим?"))
+        messages = listOf(ChatMessage(false, character.greeting.ifBlank { "Привет. Я " + character.name + ". О чём поговорим?" }))
         messageInput = ""
         chatError = ""
         page = AppPage.CHAT
@@ -218,18 +220,23 @@ fun NebulaApp(repository: NebulaRepository) {
                 )
                 AppPage.CREATE -> CreateScreen(
                     newName, { newName = it }, newBio, { newBio = it },
+                    newGreeting, { newGreeting = it }, newInstructions, { newInstructions = it },
                     { page = AppPage.DISCOVER },
                     {
                         val safeName = newName.trim()
                         if (safeName.isNotEmpty()) {
                             val created = Character(
                                 safeName, "@you", newBio.trim().ifBlank { "Новый персонаж NEBULA." },
-                                "Мой персонаж", safeName.take(2).uppercase()
+                                "Мой персонаж", safeName.take(2).uppercase(),
+                                greeting = newGreeting.trim(),
+                                instructions = newInstructions.trim()
                             )
                             characters = characters + created
                             repository.saveCustomCharacters(characters)
                             newName = ""
                             newBio = ""
+                            newGreeting = ""
+                            newInstructions = ""
                             openCharacter(created)
                         }
                     }
@@ -411,6 +418,8 @@ private fun ChatsScreen(
 @Composable
 private fun CreateScreen(
     name: String, onName: (String) -> Unit, bio: String, onBio: (String) -> Unit,
+    greeting: String, onGreeting: (String) -> Unit,
+    instructions: String, onInstructions: (String) -> Unit,
     onBack: () -> Unit, onCreate: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)) {
@@ -432,6 +441,11 @@ private fun CreateScreen(
                 AppTextField(name, onName, "Например, Акира")
                 Text("Характер и описание", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.padding(top = 15.dp, bottom = 7.dp))
                 AppTextField(bio, onBio, "Опиши характер, интересы и манеру общения…", minLines = 4)
+                Text("Первое сообщение", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.padding(top = 15.dp, bottom = 7.dp))
+                AppTextField(greeting, onGreeting, "С чего персонаж начнёт диалог?", minLines = 2)
+                Text("Дополнительные инструкции персонажу", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, modifier = Modifier.padding(top = 15.dp, bottom = 7.dp))
+                AppTextField(instructions, onInstructions, "Манера речи, цели, привычки, особенности поведения…", minLines = 4)
+                Text("Эти настройки сохраняются в карточке персонажа и применяются в новых ответах. Они не могут отменять правила безопасности.", color = MutedText, fontSize = 9.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 8.dp))
                 Button(onClick = onCreate, enabled = name.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(top = 19.dp).height(50.dp),
                     shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = Violet, contentColor = Color(0xFF211A32))) {
                     Text("Создать персонажа", fontWeight = FontWeight.Bold)
