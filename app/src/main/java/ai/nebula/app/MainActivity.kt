@@ -61,15 +61,14 @@ class MainActivity : ComponentActivity() {
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
-    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!, p.getBoolean("clean_mode",true)) { b,m,k,clean ->
-     p.edit().putString("base",b).putString("model",m).putString("key",k).putBoolean("clean_mode",clean).apply()
-    }
+    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!, p.getBoolean("clean_mode",true), p.getString("chats","[]")!!, { b,m,k,clean -> p.edit().putString("base",b).putString("model",m).putString("key",k).putBoolean("clean_mode",clean).apply() }, { json -> p.edit().putString("chats",json).apply() })
    }
   }
  }
 }
 private data class Person(val name:String,val creator:String,val bio:String,val category:String,val initials:String)
 private data class Line(val user:Boolean,val text:String)
+private data class ChatSession(val id:String,val person:Person,val lines:List<Line>,val updatedAt:Long)
 private val people = listOf(
  Person("Рин Итоши","@nebula","Холодный и расчётливый футболист. Не любит пустых разговоров.","Аниме","РИ"),
  Person("Астра","@nebula","Спокойная, внимательная, с тонким чувством юмора.","ОС","А"),
@@ -77,7 +76,7 @@ private val people = listOf(
  Person("Мира","@nebula","Загадочная собеседница со своей историей.","Фэнтези","М")
 )
 
-@Composable private fun Nebula(base0:String, model0:String, key0:String, clean0:Boolean, save:(String,String,String,Boolean)->Unit) {
+@Composable private fun Nebula(base0:String, model0:String, key0:String, clean0:Boolean, chatsJson0:String, save:(String,String,String,Boolean)->Unit, saveChats:(String)->Unit) {
  var page by remember { mutableStateOf("home") }
  var selected by remember { mutableStateOf(people[0]) }
  var category by remember { mutableStateOf("Все") }
@@ -92,6 +91,9 @@ private val people = listOf(
  var busy by remember { mutableStateOf(false) }
  var error by remember { mutableStateOf("") }
  val lines = remember { mutableStateListOf<Line>() }
+ val sessions = remember { mutableStateListOf<ChatSession>().apply { addAll(decodeChats(chatsJson0)) } }
+ var currentChatId by remember { mutableStateOf("") }
+ val persistCurrentChat = { if(currentChatId.isNotBlank()){ val item=ChatSession(currentChatId,selected,lines.toList(),System.currentTimeMillis()); val index=sessions.indexOfFirst{it.id==currentChatId}; if(index>=0)sessions[index]=item else sessions.add(0,item); saveChats(encodeChats(sessions.toList())) } }
  val scope = rememberCoroutineScope()
  val drawer = rememberDrawerState(DrawerValue.Closed)
 
@@ -133,8 +135,8 @@ private val people = listOf(
     }
    ) { currentPage -> when(currentPage) {
     "home" -> Home(category,{category=it},search,{search=it}) { person ->
-     selected=person; lines.clear(); error=""
-     lines.add(Line(false,"Привет. Я ${person.name}. О чём поговорим?")); page="chat"
+     selected=person; lines.clear(); error=""; currentChatId=System.currentTimeMillis().toString()
+     lines.add(Line(false,"Привет. Я ${person.name}. О чём поговорим?")); persistCurrentChat(); page="chat"
     }
     "create" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) {
      Text("‹  НАЗАД",color=Purple,modifier=Modifier.clickable{page="home"})
@@ -144,7 +146,7 @@ private val people = listOf(
      Spacer(Modifier.height(15.dp)); Text("ХАРАКТЕР И ОПИСАНИЕ",fontSize=11.sp,color=Muted)
      FieldInput(bio,{bio=it},"Опиши личность и манеру общения",true)
      Spacer(Modifier.height(22.dp))
-     Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();lines.add(Line(false,"Привет! Я ${selected.name}."));page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
+     Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();currentChatId=System.currentTimeMillis().toString();lines.add(Line(false,"Привет! Я ${selected.name}."));persistCurrentChat();page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
     }
     "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=it},{save(base,model,apiKey,cleanModeState);page="home"},{page="home"})
     "profile" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) { Text("ПРОФИЛЬ",fontSize=24.sp,fontWeight=FontWeight.Black); Spacer(Modifier.height(18.dp)); Surface(color=Card,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){BrandMark(72);Text("ТВОЯ ВСЕЛЕННАЯ",fontWeight=FontWeight.Bold);Text("Создавай персонажей и истории.",color=Muted,fontSize=12.sp)}};Spacer(Modifier.height(16.dp));Button(onClick={page="create"},modifier=Modifier.fillMaxWidth()){Text("Создать персонажа")} }
@@ -175,12 +177,22 @@ private val people = listOf(
       }
       Spacer(Modifier.width(8.dp))
       IconButton(enabled=input.isNotBlank()&&!busy,onClick={
-       val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error=""
-       scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,cleanModeState,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{busy=false}}
+       val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error="";persistCurrentChat()
+       scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,cleanModeState,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk);persistCurrentChat()};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{busy=false}}
       },modifier=Modifier.background(Purple,RoundedCornerShape(14.dp))){Icon(Icons.Outlined.Send,"Отправить",tint=Color.White)}
      }
     }
-    else -> Column(Modifier.padding(22.dp)){Text("МОИ ЧАТЫ",fontSize=24.sp,fontWeight=FontWeight.Black);Text("История диалогов появится здесь.",color=Muted);Button(onClick={page="home"}){Text("К персонажам")}}
+    "chats" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+      Text("МОИ ЧАТЫ",fontSize=24.sp,fontWeight=FontWeight.Black); Text("Твои сохранённые диалоги",color=Muted,modifier=Modifier.padding(top=4.dp,bottom=16.dp))
+      if(sessions.isEmpty()) Text("Пока здесь пусто. Открой персонажа, чтобы начать диалог.",color=Muted)
+      sessions.sortedByDescending{it.updatedAt}.forEach { session ->
+       Surface(color=Card,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(vertical=5.dp).clickable { currentChatId=session.id; selected=session.person; lines.clear(); lines.addAll(session.lines); error=""; page="chat" }) {
+        Column(Modifier.padding(15.dp)) { Text(session.person.name,fontWeight=FontWeight.Bold,fontSize=16.sp); Text(session.lines.lastOrNull()?.text?.ifBlank { "Диалог начат" } ?: "Диалог начат",color=Muted,fontSize=12.sp,maxLines=2,modifier=Modifier.padding(top=5.dp)) }
+       }
+      }
+      Button(onClick={page="home"},modifier=Modifier.fillMaxWidth().padding(top=14.dp)){Text("К персонажам")}
+     }
+     else -> Column(Modifier.padding(22.dp)){Text("Страница не найдена",color=Muted)}
    }
    }
   }
@@ -188,6 +200,26 @@ private val people = listOf(
  
 
 }
+
+private fun encodeChats(chats:List<ChatSession>):String = JSONArray().apply {
+ chats.forEach { chat ->
+  put(JSONObject().put("id",chat.id).put("updatedAt",chat.updatedAt)
+   .put("person",JSONObject().put("name",chat.person.name).put("creator",chat.person.creator).put("bio",chat.person.bio).put("category",chat.person.category).put("initials",chat.person.initials))
+   .put("lines",JSONArray().apply { chat.lines.forEach { put(JSONObject().put("user",it.user).put("text",it.text)) } }))
+ }
+}.toString()
+
+private fun decodeChats(json:String):List<ChatSession> = try {
+ val array=JSONArray(json)
+ (0 until array.length()).mapNotNull { i ->
+  val obj=array.optJSONObject(i) ?: return@mapNotNull null
+  val p=obj.optJSONObject("person") ?: return@mapNotNull null
+  val person=Person(p.optString("name","Персонаж"),p.optString("creator","@nebula"),p.optString("bio",""),p.optString("category","ОС"),p.optString("initials","✦"))
+  val raw=obj.optJSONArray("lines") ?: JSONArray()
+  val chatLines=(0 until raw.length()).mapNotNull { n -> raw.optJSONObject(n)?.let { Line(it.optBoolean("user"),it.optString("text")) } }
+  ChatSession(obj.optString("id",i.toString()),person,chatLines,obj.optLong("updatedAt"))
+ }
+}.getOrElse { emptyList() }
 
 @Composable private fun SettingsScreen(base:String,onBase:(String)->Unit,model:String,onModel:(String)->Unit,key:String,onKey:(String)->Unit,clean:Boolean,onClean:(Boolean)->Unit,onSave:()->Unit,onBack:()->Unit){
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=20.dp,vertical=16.dp)){
