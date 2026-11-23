@@ -113,7 +113,7 @@ private val people = listOf(
     BrandMark(34); Spacer(Modifier.width(9.dp)); Text("NEBULA",fontSize=22.sp,fontWeight=FontWeight.Black,letterSpacing=1.3.sp,modifier=Modifier.weight(1f))
     Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.Bolt,null,tint=Yellow,modifier=Modifier.padding(10.dp).size(22.dp))}
     Spacer(Modifier.width(9.dp))
-    Surface(color=Purple,shape=RoundedCornerShape(12.dp),modifier=Modifier.clickable{showSettings=true}) {
+    Surface(color=Purple,shape=RoundedCornerShape(12.dp),modifier=Modifier.clickable{page="settings"}) {
      Text("API ⚙",fontSize=13.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(horizontal=14.dp,vertical=11.dp))
     }
    }
