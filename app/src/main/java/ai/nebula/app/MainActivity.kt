@@ -393,7 +393,22 @@ private fun decodeChats(json:String):List<ChatSession> = try {
  Box(Modifier.size(size.dp).background(Brush.linearGradient(listOf(p[0],p[1])),RoundedCornerShape(16.dp)),contentAlignment=Alignment.Center){
   Box(Modifier.fillMaxWidth(.72f).height((size*.66f).dp).align(Alignment.BottomCenter).background(p[3],RoundedCornerShape(topStart=50.dp,topEnd=50.dp,bottomStart=12.dp,bottomEnd=12.dp)))
   Box(Modifier.size((size*.53f).dp).offset(y=(-size*.02f).dp).background(p[2],RoundedCornerShape(42.dp)))
-  Box(Modifier.size((size*.59f).dp).height((size*.29f).dp).align(Alignment.TopCenter).offset(y=(size*.13f).dp).background(p[3],RoundedCornerShape(topStart=40.dp,topEnd=40.dp,bottomStart=13.dp,bottomEnd=13.dp)))
+  Box(Modifier.size((size*.68f).dp).height((size*.28f).dp).align(Alignment.TopCenter).offset(y=(-size*.19f).dp).background(p[3],RoundedCornerShape(topStart=50.dp,topEnd=50.dp,bottomStart=12.dp,bottomEnd=12.dp)))
+  Box(Modifier.size((size*.12f).dp).height((size*.28f).dp).align(Alignment.CenterStart).offset(x=(size*.20f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(8.dp)))
+  Box(Modifier.size((size*.12f).dp).height((size*.28f).dp).align(Alignment.CenterEnd).offset(x=(-size*.20f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(8.dp)))
+  Box(Modifier.size((size*.59f).dp).height((size*.20f).dp).align(Alignment.TopCenter).offset(y=(size*.02f).dp).background(p[3],RoundedCornerShape(topStart=40.dp,topEnd=40.dp,bottomStart=13.dp,bottomEnd=13.dp)))
+  if(index%4==0) {
+   Box(Modifier.size((size*.20f).dp).height((size*.12f).dp).align(Alignment.TopStart).offset(x=(size*.20f).dp,y=(size*.04f).dp).background(p[3],RoundedCornerShape(bottomEnd=18.dp)))
+   Box(Modifier.size((size*.17f).dp).height((size*.18f).dp).align(Alignment.TopEnd).offset(x=(-size*.20f).dp,y=(size*.02f).dp).background(p[3],RoundedCornerShape(bottomStart=18.dp)))
+  } else if(index%4==1) {
+   Box(Modifier.size((size*.10f).dp).height((size*.42f).dp).align(Alignment.CenterStart).offset(x=(size*.13f).dp,y=(size*.12f).dp).background(p[3],RoundedCornerShape(10.dp)))
+   Box(Modifier.size((size*.10f).dp).height((size*.42f).dp).align(Alignment.CenterEnd).offset(x=(-size*.13f).dp,y=(size*.12f).dp).background(p[3],RoundedCornerShape(10.dp)))
+  } else if(index%4==2) {
+   Box(Modifier.size((size*.24f).dp).height((size*.11f).dp).align(Alignment.TopCenter).offset(y=(size*.03f).dp).background(p[3],RoundedCornerShape(8.dp)))
+  } else {
+   Box(Modifier.size((size*.13f).dp).height((size*.25f).dp).align(Alignment.TopStart).offset(x=(size*.22f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(bottomEnd=16.dp)))
+   Box(Modifier.size((size*.13f).dp).height((size*.25f).dp).align(Alignment.TopEnd).offset(x=(-size*.22f).dp,y=(size*.08f).dp).background(p[3],RoundedCornerShape(bottomStart=16.dp)))
+  }
   Row(Modifier.align(Alignment.Center).offset(y=(size*.035f).dp),horizontalArrangement=Arrangement.spacedBy((size*.14f).dp)){
    repeat(2){Box(Modifier.size((size*.045f).dp).background(Color(0xFF29202A),CircleShape))}
   }
