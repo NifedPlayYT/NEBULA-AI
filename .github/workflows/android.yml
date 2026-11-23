@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [ "main", "v0.2-rebuild" ]
+  pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: write
