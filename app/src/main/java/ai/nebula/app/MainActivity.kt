@@ -325,31 +325,44 @@ private fun decodeChats(json:String):List<ChatSession> = try {
  Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=20.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Muted);Spacer(Modifier.width(18.dp));Text(label,fontSize=16.sp)}
 }
 @Composable private fun Home(peopleList:List<Person>,category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onCreate:()->Unit,onOpen:(Person)->Unit){
- val categories=listOf("Все","Аниме","Игры","ОС","Фэнтези","Реализм")
- val shown=peopleList.filter{(category=="Все"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
- Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom=24.dp)){
-  Spacer(Modifier.height(22.dp))
-  Column(Modifier.fillMaxWidth().padding(horizontal=22.dp).background(Brush.linearGradient(listOf(Color(0xFF342957),Color(0xFF1D1D30),Bg)),RoundedCornerShape(22.dp)).padding(18.dp)){
-   Text("ТВОЯ ВСЕЛЕННАЯ",fontSize=10.sp,color=Yellow,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
-   Spacer(Modifier.height(7.dp))
-   Text("Твоя следующая\nистория начинается здесь",fontSize=27.sp,fontWeight=FontWeight.Black,lineHeight=31.sp)
-   Text("Открой новые миры и найди собеседника по настроению.",color=Muted,fontSize=13.sp,lineHeight=18.sp,modifier=Modifier.padding(top=7.dp))
-   Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(top=15.dp)){BrandMark(26);Text("  NEBULA AI",fontSize=11.sp,color=Color.White.copy(alpha=.8f),letterSpacing=1.4.sp)}
+ val categories=listOf("Для вас","ОС","Аниме","Игры","Фэнтези","Реализм")
+ val shown=peopleList.filter{(category=="Для вас"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
+ Column(Modifier.fillMaxSize()) {
+  Row(Modifier.fillMaxWidth().padding(start=18.dp,end=12.dp,top=14.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically) {
+   Surface(color=Field,shape=RoundedCornerShape(28.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.weight(1f)) {
+    Row(Modifier.padding(horizontal=15.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically) {
+     Icon(Icons.Outlined.Search,null,tint=Muted,modifier=Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
+     BasicTextField(search,onSearch,modifier=Modifier.weight(1f),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=15.sp),decorationBox={inner->if(search.isEmpty())Text("Найти персонажа…",color=Muted,fontSize=15.sp);inner()})
+    }
+   }
+   TextButton(onClick={onCategory("Для вас")}) { Text("Все",fontSize=15.sp,color=Color.White,fontWeight=FontWeight.SemiBold); Icon(Icons.Outlined.ExpandMore,null,tint=Color.White) }
   }
-  Spacer(Modifier.height(16.dp))
-  Surface(color=Field,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp)){
-   Row(Modifier.padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Search,null,tint=Muted);Spacer(Modifier.width(10.dp));BasicTextField(search,onSearch,modifier=Modifier.weight(1f),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White),decorationBox={inner->if(search.isEmpty())Text("Поиск персонажей…",color=Muted);inner()})}
+  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start=18.dp,end=18.dp,bottom=12.dp),horizontalArrangement=Arrangement.spacedBy(22.dp),verticalAlignment=Alignment.CenterVertically) {
+   categories.forEach { item ->
+    Column(Modifier.clickable{onCategory(item)}.padding(vertical=4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+     Text(item,fontSize=15.sp,fontWeight=if(category==item)FontWeight.Bold else FontWeight.Medium,color=if(category==item)Color.White else Muted)
+     Spacer(Modifier.height(7.dp))
+     Box(Modifier.width(if(category==item)25.dp else 0.dp).height(4.dp).background(if(category==item)Yellow else Color.Transparent,CircleShape))
+    }
+   }
   }
-  Spacer(Modifier.height(22.dp));Heading("🔥  ПОПУЛЯРНЫЕ КАТЕГОРИИ")
-  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=22.dp),horizontalArrangement=Arrangement.spacedBy(9.dp)){
-   categories.forEach{item->Surface(color=if(category==item)Purple else Card,shape=RoundedCornerShape(13.dp),modifier=Modifier.clickable{onCategory(item)}){Text(item,modifier=Modifier.padding(horizontal=18.dp,vertical=13.dp),fontWeight=FontWeight.SemiBold)}}
-  }
-  Spacer(Modifier.height(22.dp));Heading("✦  ВЫБРАНО ДЛЯ ТЕБЯ")
-  shown.forEachIndexed{index,p->PersonCard(p,index,onOpen)}
-  if(shown.isEmpty())Text("Ничего не найдено.",color=Muted,modifier=Modifier.padding(22.dp))
-  Spacer(Modifier.height(18.dp));Heading("ТВОИ ПЕРСОНАЖИ")
-  Surface(color=Card,shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp).clickable{onCreate()}){
-   Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.AddCircleOutline,null,tint=Purple,modifier=Modifier.size(30.dp));Spacer(Modifier.width(12.dp));Column{Text("Создай собственного собеседника",fontWeight=FontWeight.Bold);Text("Настрой имя и характер",color=Muted,fontSize=12.sp)}}
+  if(shown.isEmpty()) {
+   Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text("Ничего не найдено.",color=Muted)}
+  } else {
+   Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=10.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+    shown.chunked(2).forEachIndexed { rowIndex,rowPeople ->
+     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+      rowPeople.forEach { person ->
+       val personIndex=peopleList.indexOf(person).coerceAtLeast(0)
+       PersonCard(person,personIndex,Modifier.weight(1f),onOpen)
+      }
+      if(rowPeople.size==1) Spacer(Modifier.weight(1f))
+     }
+    }
+    Surface(color=Card,shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(top=5.dp,bottom=18.dp).clickable{onCreate()}) {
+     Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) { Icon(Icons.Outlined.AddCircleOutline,null,tint=Purple,modifier=Modifier.size(26.dp)); Spacer(Modifier.width(11.dp)); Column { Text("Создать персонажа",fontWeight=FontWeight.Bold); Text("Придумай своего собеседника",fontSize=11.sp,color=Muted) } }
+    }
+   }
   }
  }
 }
@@ -368,25 +381,21 @@ private fun decodeChats(json:String):List<ChatSession> = try {
  }
 }
 @Composable private fun Heading(text:String){Text(text,fontSize=17.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=22.dp,vertical=12.dp))}
-@Composable private fun PersonCard(p:Person,index:Int,onOpen:(Person)->Unit){
- Surface(color=Card,shape=RoundedCornerShape(22.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=7.dp).clickable{onOpen(p)}){
-  Column {
-   Box(Modifier.fillMaxWidth().height(154.dp).background(Brush.linearGradient(listOf(
-    listOf(Color(0xFF40316C),Color(0xFF24243A)),
-    listOf(Color(0xFF244657),Color(0xFF202638)),
-    listOf(Color(0xFF68442F),Color(0xFF282333)),
-    listOf(Color(0xFF49305E),Color(0xFF202638))
-   )[index%4])),contentAlignment=Alignment.Center){
-    PortraitAvatar(index,126)
-    Surface(color=Color(0xAA11111B),shape=RoundedCornerShape(9.dp),modifier=Modifier.align(Alignment.TopEnd).padding(12.dp)){Text(p.category.uppercase(),color=Color.White,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=10.dp,vertical=6.dp))}
+@Composable private fun PersonCard(p:Person,index:Int,modifier:Modifier=Modifier,onOpen:(Person)->Unit){
+ Surface(color=Card,shape=RoundedCornerShape(22.dp),border=BorderStroke(1.dp,Color(0xFF292936)),modifier=modifier.clickable{onOpen(p)}) {
+  Box(Modifier.fillMaxWidth().height(238.dp)) {
+   val image=ImageBitmap.imageResource(R.drawable.nebula_portraits)
+   val tileWidth=image.width/2; val tileHeight=image.height/2; val tile=((index%4)+4)%4
+   Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
+    drawImage(image,srcOffset=IntOffset((tile%2)*tileWidth,(tile/2)*tileHeight),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt()))
+    drawRect(Brush.verticalGradient(0f to Color.Transparent,0.42f to Color(0x22000000),1f to Color(0xE8000000)))
    }
-   Row(Modifier.fillMaxWidth().padding(start=16.dp,end=12.dp,top=13.dp,bottom=15.dp),verticalAlignment=Alignment.CenterVertically){
-    Column(Modifier.weight(1f)){
-     Text(p.name,fontSize=19.sp,fontWeight=FontWeight.ExtraBold,letterSpacing=.2.sp)
-     Text(p.creator,color=Yellow,fontSize=11.sp,modifier=Modifier.padding(top=2.dp))
-     Text(p.bio,color=Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=2,modifier=Modifier.padding(top=7.dp))
-    }
-    Surface(color=Purple,shape=RoundedCornerShape(13.dp)){Icon(Icons.Outlined.ArrowForward,null,tint=Color.White,modifier=Modifier.padding(11.dp).size(18.dp))}
+   Surface(color=Color(0xAA15151D),shape=RoundedCornerShape(20.dp),modifier=Modifier.align(Alignment.TopStart).padding(9.dp)) {
+    Row(Modifier.padding(horizontal=8.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically) { Icon(Icons.Outlined.ChatBubble,null,tint=Color.White,modifier=Modifier.size(12.dp)); Spacer(Modifier.width(5.dp)); Text("NEBULA",fontSize=9.sp,color=Color.White,fontWeight=FontWeight.Bold) }
+   }
+   Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal=12.dp,vertical=13.dp)) {
+    Text(p.name,fontSize=17.sp,fontWeight=FontWeight.ExtraBold,color=Color.White,maxLines=2,lineHeight=19.sp)
+    Text(p.bio,color=Color.White.copy(alpha=.78f),fontSize=11.sp,lineHeight=14.sp,maxLines=2,modifier=Modifier.padding(top=4.dp))
    }
   }
  }
