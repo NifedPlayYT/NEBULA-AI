@@ -23,4 +23,12 @@ class ChatRequestPolicyTest {
         assertTrue(result.sumOf { it.text.length } <= 120)
         assertEquals("b".repeat(100), result.last().text)
     }
+
+    @Test
+    fun oversizedNewestMessageKeepsItsEnding() {
+        val history = listOf(ChatMessage(true, "BEGIN-" + "x".repeat(100) + "-END"))
+        val result = ChatRequestPolicy.selectHistory(history, maxCharacters = 20)
+        assertEquals(20, result.single().text.length)
+        assertTrue(result.single().text.endsWith("-END"))
+    }
 }
