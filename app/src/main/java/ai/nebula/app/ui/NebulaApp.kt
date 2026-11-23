@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,6 +99,7 @@ fun NebulaApp(repository: NebulaRepository) {
     var characters by remember { mutableStateOf(repository.loadCharacters()) }
     var sessions by remember { mutableStateOf(repository.loadSessions()) }
     var page by remember { mutableStateOf(AppPage.DISCOVER) }
+    var chatReturnPage by remember { mutableStateOf(AppPage.DISCOVER) }
     var settingsReturnPage by remember { mutableStateOf(AppPage.PROFILE) }
     var selectedCharacter by remember { mutableStateOf<Character?>(null) }
     var currentChatId by remember { mutableStateOf("") }
@@ -125,6 +127,7 @@ fun NebulaApp(repository: NebulaRepository) {
     }
 
     fun openCharacter(character: Character) {
+        chatReturnPage = if (page == AppPage.CREATE) AppPage.DISCOVER else page
         selectedCharacter = character
         currentChatId = System.currentTimeMillis().toString()
         messages = listOf(ChatMessage(false, "Привет. Я " + character.name + ". О чём поговорим?"))
@@ -135,6 +138,7 @@ fun NebulaApp(repository: NebulaRepository) {
     }
 
     fun openSession(session: ChatSession) {
+        chatReturnPage = AppPage.CHATS
         selectedCharacter = session.character
         currentChatId = session.id
         messages = session.messages
@@ -230,7 +234,7 @@ fun NebulaApp(repository: NebulaRepository) {
                     val character = selectedCharacter
                     if (character != null) ConversationScreen(
                         character, messages, messageInput, { messageInput = it },
-                        sending, chatError, { page = AppPage.CHATS },
+                        sending, chatError, { page = chatReturnPage },
                         { settingsReturnPage = AppPage.CHAT; page = AppPage.SETTINGS },
                         ::sendMessage
                     )
@@ -301,7 +305,7 @@ private fun DiscoverScreen(
         }
         Text("ОТКРОЙ НОВОЕ", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp, modifier = Modifier.padding(top = 22.dp, bottom = 9.dp))
         SearchField(search, onSearch)
-        Row(Modifier.fillMaxWidth().padding(top = 13.dp, bottom = 13.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 13.dp, bottom = 13.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             categories.forEach { item ->
                 val active = item == category
                 Surface(
@@ -521,14 +525,14 @@ private fun ConversationScreen(
     Column(Modifier.fillMaxSize().imePadding()) {
         Surface(color = Color(0xF7131724), border = BorderStroke(0.5.dp, Hairline)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Назад", tint = Color.White) }
+                IconButton(enabled = !sending, onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Назад", tint = if (sending) MutedText else Color.White) }
                 CharacterAvatar(character, 39)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(character.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text("AI-ПЕРСОНАЖ  •  NEBULA", color = MutedText, fontSize = 7.sp, letterSpacing = 1.sp)
                 }
-                IconButton(onClick = onSettings) { Icon(Icons.Outlined.Settings, "Настройки", tint = MutedText) }
+                IconButton(enabled = !sending, onClick = onSettings) { Icon(Icons.Outlined.Settings, "Настройки", tint = if (sending) MutedText.copy(alpha = .45f) else MutedText) }
             }
         }
         LazyColumn(
@@ -536,7 +540,7 @@ private fun ConversationScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(messages) { message -> MessageBubble(character, message) }
+            items(messages.filter { it.isUser || it.text.isNotBlank() }) { message -> MessageBubble(character, message) }
             if (sending && messages.lastOrNull()?.let { !it.isUser && it.text.isBlank() } == true) item { TypingRow(character) }
             if (error.isNotBlank()) item {
                 Surface(color = Color(0xFF3A222A), shape = RoundedCornerShape(13.dp), modifier = Modifier.fillMaxWidth()) {
