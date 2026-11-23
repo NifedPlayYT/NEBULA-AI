@@ -57,7 +57,9 @@ class NebulaRepository(context: Context) {
                         creator = person.optString("creator", "@nebula"),
                         bio = person.optString("bio", ""),
                         category = person.optString("category", "ОС"),
-                        initials = person.optString("initials", "✦")
+                        initials = person.optString("initials", "✦"),
+                        greeting = person.optString("greeting", ""),
+                        instructions = person.optString("instructions", "")
                     )
                     val rawMessages = item.optJSONArray("lines") ?: JSONArray()
                     val messages = buildList {
@@ -88,6 +90,8 @@ class NebulaRepository(context: Context) {
                 .put("bio", session.character.bio)
                 .put("category", session.character.category)
                 .put("initials", session.character.initials)
+                .put("greeting", session.character.greeting)
+                .put("instructions", session.character.instructions)
             val lines = JSONArray()
             session.messages.takeLast(160).forEach { message ->
                 lines.put(JSONObject().put("user", message.isUser).put("text", message.text))
@@ -113,6 +117,8 @@ class NebulaRepository(context: Context) {
                     .put("bio", person.bio)
                     .put("category", person.category)
                     .put("initials", person.initials)
+                    .put("greeting", person.greeting)
+                    .put("instructions", person.instructions)
             )
         }
         return array.toString()
@@ -129,7 +135,9 @@ class NebulaRepository(context: Context) {
                         creator = item.optString("creator", "@you"),
                         bio = item.optString("bio", ""),
                         category = item.optString("category", "ОС"),
-                        initials = item.optString("initials", "✦")
+                        initials = item.optString("initials", "✦"),
+                        greeting = item.optString("greeting", ""),
+                        instructions = item.optString("instructions", "")
                     )
                 )
             }
