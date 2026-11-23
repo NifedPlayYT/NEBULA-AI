@@ -219,7 +219,7 @@ private fun decodeChats(json:String):List<ChatSession> = try {
   val chatLines=(0 until raw.length()).mapNotNull { n -> raw.optJSONObject(n)?.let { Line(it.optBoolean("user"),it.optString("text")) } }
   ChatSession(obj.optString("id",i.toString()),person,chatLines,obj.optLong("updatedAt"))
  }
-}.getOrElse { emptyList() }
+} catch (_:Exception) { emptyList() }
 
 @Composable private fun SettingsScreen(base:String,onBase:(String)->Unit,model:String,onModel:(String)->Unit,key:String,onKey:(String)->Unit,clean:Boolean,onClean:(Boolean)->Unit,onSave:()->Unit,onBack:()->Unit){
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=20.dp,vertical=16.dp)){
