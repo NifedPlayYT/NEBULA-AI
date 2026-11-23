@@ -426,7 +426,19 @@ private suspend fun askAiStream(base:String,model:String,key:String,character:St
  val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").header("Accept","text/event-stream").post(body).build()
  val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(90,TimeUnit.SECONDS).callTimeout(100,TimeUnit.SECONDS).build()
  client.newCall(req).execute().use{res->
-  if(!res.isSuccessful){val raw=res.body?.string().orEmpty();throw IllegalStateException("API ${res.code}: ${raw.take(180)}")}
+  if(!res.isSuccessful){
+   res.body?.close()
+   val message=when(res.code){
+    401 -> "API-ключ не принят. Проверь ключ в настройках."
+    403 -> "Провайдер запретил запрос. Проверь доступ к модели и баланс."
+    404 -> "Не найден адрес API или модель. Проверь настройки подключения."
+    408 -> "Провайдер не успел ответить. Попробуй ещё раз."
+    429 -> "Слишком много запросов или достигнут лимит провайдера. Подожди немного и повтори."
+    in 500..599 -> "На стороне AI-провайдера временная ошибка (${res.code}). Попробуй позже."
+    else -> "Ошибка API ${res.code}. Проверь адрес, модель и настройки провайдера."
+   }
+   throw IllegalStateException(message)
+  }
   val source=res.body?.source()?:throw IllegalStateException("Пустой ответ API")
   while(!source.exhausted()){
    val line=source.readUtf8Line()?:break
