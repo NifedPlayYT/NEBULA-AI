@@ -221,8 +221,8 @@ private val people = listOf(
   Column(Modifier.fillMaxWidth().padding(horizontal=22.dp).background(Brush.linearGradient(listOf(Color(0xFF342957),Color(0xFF1D1D30),Bg)),RoundedCornerShape(22.dp)).padding(18.dp)){
    Text("ТВОЯ ВСЕЛЕННАЯ",fontSize=10.sp,color=Yellow,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
    Spacer(Modifier.height(7.dp))
-   Text("Найди свою историю",fontSize=27.sp,fontWeight=FontWeight.Black,lineHeight=31.sp)
-   Text("Персонажи, с которыми хочется говорить.",color=Muted,fontSize=13.sp,modifier=Modifier.padding(top=6.dp))
+   Text("Твоя следующая\nистория начинается здесь",fontSize=27.sp,fontWeight=FontWeight.Black,lineHeight=31.sp)
+   Text("Открой новые миры и найди собеседника по настроению.",color=Muted,fontSize=13.sp,lineHeight=18.sp,modifier=Modifier.padding(top=7.dp))
    Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(top=15.dp)){BrandMark(26);Text("  NEBULA AI",fontSize=11.sp,color=Color.White.copy(alpha=.8f),letterSpacing=1.4.sp)}
   }
   Spacer(Modifier.height(16.dp))
@@ -233,7 +233,7 @@ private val people = listOf(
   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=22.dp),horizontalArrangement=Arrangement.spacedBy(9.dp)){
    categories.forEach{item->Surface(color=if(category==item)Purple else Card,shape=RoundedCornerShape(13.dp),modifier=Modifier.clickable{onCategory(item)}){Text(item,modifier=Modifier.padding(horizontal=18.dp,vertical=13.dp),fontWeight=FontWeight.SemiBold)}}
   }
-  Spacer(Modifier.height(22.dp));Heading("✦  ПЕРСОНАЖИ ДЛЯ ТЕБЯ")
+  Spacer(Modifier.height(22.dp));Heading("✦  ВЫБРАНО ДЛЯ ТЕБЯ")
   shown.forEachIndexed{index,p->PersonCard(p,index,onOpen)}
   if(shown.isEmpty())Text("Ничего не найдено.",color=Muted,modifier=Modifier.padding(22.dp))
   Spacer(Modifier.height(18.dp));Heading("ТВОИ ПЕРСОНАЖИ")
@@ -244,11 +244,25 @@ private val people = listOf(
 }
 @Composable private fun Heading(text:String){Text(text,fontSize=17.sp,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(horizontal=22.dp,vertical=12.dp))}
 @Composable private fun PersonCard(p:Person,index:Int,onOpen:(Person)->Unit){
- Surface(color=Card,shape=RoundedCornerShape(20.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=6.dp).clickable{onOpen(p)}){
-  Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){
-   PortraitAvatar(index,104)
-   Column(Modifier.weight(1f).padding(start=14.dp)){Text(p.name,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(p.creator,color=Yellow,fontSize=11.sp);Text(p.bio,color=Muted,fontSize=12.sp,lineHeight=16.sp,maxLines=2);Spacer(Modifier.height(8.dp));Surface(color=Purple.copy(alpha=.16f),shape=RoundedCornerShape(7.dp)){Text(p.category.uppercase(),color=Purple,fontSize=9.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=8.dp,vertical=4.dp))}}
-   Icon(Icons.Outlined.ChevronRight,null,tint=Muted)
+ Surface(color=Card,shape=RoundedCornerShape(22.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=7.dp).clickable{onOpen(p)}){
+  Column {
+   Box(Modifier.fillMaxWidth().height(154.dp).background(Brush.linearGradient(listOf(
+    listOf(Color(0xFF40316C),Color(0xFF24243A)),
+    listOf(Color(0xFF244657),Color(0xFF202638)),
+    listOf(Color(0xFF68442F),Color(0xFF282333)),
+    listOf(Color(0xFF49305E),Color(0xFF202638))
+   )[index%4])),contentAlignment=Alignment.Center){
+    PortraitAvatar(index,126)
+    Surface(color=Color(0xAA11111B),shape=RoundedCornerShape(9.dp),modifier=Modifier.align(Alignment.TopEnd).padding(12.dp)){Text(p.category.uppercase(),color=Color.White,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=10.dp,vertical=6.dp))}
+   }
+   Row(Modifier.fillMaxWidth().padding(start=16.dp,end=12.dp,top=13.dp,bottom=15.dp),verticalAlignment=Alignment.CenterVertically){
+    Column(Modifier.weight(1f)){
+     Text(p.name,fontSize=19.sp,fontWeight=FontWeight.ExtraBold,letterSpacing=.2.sp)
+     Text(p.creator,color=Yellow,fontSize=11.sp,modifier=Modifier.padding(top=2.dp))
+     Text(p.bio,color=Muted,fontSize=12.sp,lineHeight=17.sp,maxLines=2,modifier=Modifier.padding(top=7.dp))
+    }
+    Surface(color=Purple,shape=RoundedCornerShape(13.dp)){Icon(Icons.Outlined.ArrowForward,null,tint=Color.White,modifier=Modifier.padding(11.dp).size(18.dp))}
+   }
   }
  }
 }
