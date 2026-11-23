@@ -26,6 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
@@ -142,7 +146,7 @@ private val people = listOf(
      }
      LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal=14.dp),contentPadding=PaddingValues(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
       items(lines){line->Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start){
-       Surface(color=if(line.user)Purple else Card,shape=RoundedCornerShape(17.dp),modifier=Modifier.widthIn(max=310.dp)){Text(line.text,modifier=Modifier.padding(14.dp))}
+       Surface(color=if(line.user)Purple else Card,shape=RoundedCornerShape(17.dp),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
       }}
       if(busy)item{Text("${selected.name} печатает…",color=Muted)}
       if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp)}
@@ -175,6 +179,29 @@ private val people = listOf(
    Text("В приложении нет платных сообщений. API-провайдер может взимать плату за запросы. Не публикуй APK с личным ключом.",fontSize=11.sp,color=Muted)
   }
  },confirmButton={TextButton(onClick={save(base,model,apiKey);showSettings=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={showSettings=false}){Text("Отмена")}})
+}
+
+
+@Composable private fun RichMessageText(text:String,user:Boolean){
+ val styled=remember(text,user){
+  buildAnnotatedString {
+   text.replace("\\r\\n","\\n").split("\\n").forEachIndexed{index,raw->
+    val isDialogue=raw.startsWith("- ")
+    if(isDialogue) withStyle(SpanStyle(color=if(user)Color.White.copy(alpha=.9f) else Purple,fontWeight=FontWeight.Bold)){append("— ")}
+    val content=if(isDialogue)raw.removePrefix("- ") else raw
+    val action=Regex("\\*([^*\\n]+)\\*")
+    var cursor=0
+    action.findAll(content).forEach{m->
+     append(content.substring(cursor,m.range.first))
+     withStyle(SpanStyle(color=if(user)Color.White.copy(alpha=.78f) else Muted,fontStyle=FontStyle.Italic,fontSize=14.sp)){append(m.groupValues[1])}
+     cursor=m.range.last+1
+    }
+    append(content.substring(cursor))
+    if(index<text.replace("\\r\\n","\\n").split("\\n").lastIndex)append("\\n")
+   }
+  }
+ }
+ Text(styled,modifier=Modifier.padding(14.dp),fontSize=16.sp,lineHeight=23.sp,color=if(user)Color.White else Color(0xFFF2F0FA))
 }
 
 @Composable private fun NavItem(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
@@ -249,7 +276,7 @@ private val people = listOf(
 }
 private suspend fun askAiStream(base:String,model:String,key:String,character:String,personality:String,history:List<Line>,onChunk:(String)->Unit)=withContext(Dispatchers.IO){
  require(base.isNotBlank()&&model.isNotBlank()&&key.isNotBlank()){"Открой настройки API и укажи адрес, модель и ключ."}
- val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Твоя личность и характер: ${personality.ifBlank { "Самостоятельно поддерживай естественный характер и последовательный стиль общения." }}. Строго придерживайся этой личности в каждом ответе. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
+ val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Твоя личность и характер: ${personality.ifBlank { "Самостоятельно поддерживай естественный характер и последовательный стиль общения." }}. Строго придерживайся этой личности в каждом ответе. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене оформляй действия строго между одиночными звёздочками, например *сел на пол*; каждое действие должно быть отдельным фрагментом. Реплики персонажа в диалоге начинай с новой строки и тире, например: - Привет, как дела? Не используй Markdown-заголовки и лишние списки. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
  history.takeLast(16).forEach{msgs.put(JSONObject().put("role",if(it.user)"user" else "assistant").put("content",it.text))}
  val body=JSONObject().put("model",model).put("messages",msgs).put("temperature",0.75).put("max_tokens",350).put("stream",true).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
  val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").header("Accept","text/event-stream").post(body).build()
