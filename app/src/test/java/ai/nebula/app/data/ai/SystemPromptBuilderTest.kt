@@ -24,10 +24,18 @@ class SystemPromptBuilderTest {
     }
 
     @Test
-    fun customPromptIsIncludedAndBounded() {
+    fun customPromptIsIgnoredWhileCleanModeIsEnabled() {
         val custom = "Говори короткими фразами и сохраняй характер."
-        val prompt = SystemPromptBuilder.build(AppSettings(customPrompt = custom), character)
+        val prompt = SystemPromptBuilder.build(AppSettings(cleanMode = true, customPrompt = custom), character)
+        assertFalse(prompt.contains(custom))
+    }
+
+    @Test
+    fun customPromptIsIncludedOnlyInExpressiveMode() {
+        val custom = "Говори короткими фразами и сохраняй характер."
+        val prompt = SystemPromptBuilder.build(AppSettings(cleanMode = false, customPrompt = custom), character)
         assertTrue(prompt.contains(custom))
+        assertTrue(prompt.contains("Additional guidance for EXPRESSIVE mode only"))
         assertTrue(prompt.contains("does not override safety requirements"))
     }
 }
