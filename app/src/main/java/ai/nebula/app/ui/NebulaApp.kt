@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -203,7 +204,7 @@ fun NebulaApp(repository: NebulaRepository) {
         generationJob?.cancel()
     }
 
-    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101321), Ink, Ink)))) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101321), Ink, Ink))).statusBarsPadding()) {
         AnimatedContent(
             targetState = page,
             modifier = Modifier.weight(1f),
@@ -560,7 +561,7 @@ private fun ConversationScreen(
     LaunchedEffect(messages.size, sending) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
-    Column(Modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize().imePadding().navigationBarsPadding()) {
         Surface(color = Color(0xF7131724), border = BorderStroke(0.5.dp, Hairline)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(enabled = !sending, onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Назад", tint = if (sending) MutedText else Color.White) }
