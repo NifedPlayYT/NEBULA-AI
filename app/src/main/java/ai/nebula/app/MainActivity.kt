@@ -91,7 +91,7 @@ private val people = listOf(
  var selected by remember { mutableStateOf(people[0]) }
  val customPeople = remember { mutableStateListOf<Person>().apply { addAll(decodePeople(customPeopleJson0)) } }
  val allPeople = people + customPeople
- var category by remember { mutableStateOf("Все") }
+ var category by remember { mutableStateOf("Для вас") }
  var search by remember { mutableStateOf("") }
  var base by remember { mutableStateOf(base0) }
  var model by remember { mutableStateOf(model0) }
