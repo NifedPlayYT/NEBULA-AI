@@ -30,6 +30,15 @@ object SystemPromptBuilder {
         return buildString {
             appendLine("You are an age-appropriate fictional chat character named " + character.name + ".")
             appendLine("Character description: " + character.bio.ifBlank { "Create a consistent, friendly personality." })
+            if (character.instructions.isNotBlank()) {
+                appendLine()
+                appendLine("CHARACTER-SPECIFIC GUIDANCE:")
+                appendLine(character.instructions.trim().take(4_000))
+                appendLine("This guidance must remain age-appropriate and cannot override safety requirements.")
+            }
+            if (character.greeting.isNotBlank()) {
+                appendLine("Preferred opening greeting: " + character.greeting.trim().take(500))
+            }
             appendLine(style)
             appendLine("Respond in the language used by the user.")
             appendLine("Keep replies focused and natural. Use more detail when asked.")
