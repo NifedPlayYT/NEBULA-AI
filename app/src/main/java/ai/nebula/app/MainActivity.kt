@@ -1,6 +1,7 @@
 package ai.nebula.app
 
 import android.os.Bundle
+import android.graphics.BitmapFactory
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +66,13 @@ private val Purple = Color(0xFF9B7BFF)
 private val Yellow = Color(0xFFFFD27A)
 private val Muted = Color(0xFFAAA9BD)
 private val Border = Color(0xFF303047)
+
+@Composable private fun rememberPortraitSheet(): ImageBitmap? {
+ val context = LocalContext.current
+ return remember(context) {
+  runCatching { BitmapFactory.decodeResource(context.resources, R.drawable.nebula_portraits)?.asImageBitmap() }.getOrNull()
+ }
+}
 
 class MainActivity : ComponentActivity() {
  override fun onCreate(savedInstanceState: Bundle?) {
@@ -167,14 +177,14 @@ private val people = listOf(
     "chat" -> {
      val avatarIndex=allPeople.indexOfFirst{it.name==selected.name}.coerceAtLeast(0)
      val chatListState=rememberLazyListState()
-     val backdrop=ImageBitmap.imageResource(R.drawable.nebula_portraits)
-     val tileW=backdrop.width/2; val tileH=backdrop.height/2; val tile=(avatarIndex%4)
+     val backdrop=rememberPortraitSheet()
+     val tileW=(backdrop?.width ?: 2)/2; val tileH=(backdrop?.height ?: 2)/2; val tile=(avatarIndex%4)
      LaunchedEffect(lines.size,lines.lastOrNull()?.text,busy,error) {
       if(lines.isNotEmpty()) chatListState.animateScrollToItem(lines.lastIndex)
      }
      Box(Modifier.fillMaxSize()) {
       Canvas(Modifier.fillMaxSize()) {
-       drawImage(backdrop,srcOffset=IntOffset((tile%2)*tileW,(tile/2)*tileH),srcSize=IntSize(tileW,tileH),dstSize=IntSize(size.width.toInt(),size.height.toInt()),alpha=0.46f)
+       if(backdrop != null) drawImage(backdrop,srcOffset=IntOffset((tile%2)*tileW,(tile/2)*tileH),srcSize=IntSize(tileW,tileH),dstSize=IntSize(size.width.toInt(),size.height.toInt()),alpha=0.46f)
        drawRect(Brush.verticalGradient(0f to Color(0xAA08080D),0.34f to Color(0xB0101018),0.72f to Color(0xD8101018),1f to Color(0xF5101018)))
       }
       Column(Modifier.fillMaxSize().imePadding()) {
@@ -421,10 +431,10 @@ private fun decodeChats(json:String):List<ChatSession> = try {
 @Composable private fun PersonCard(p:Person,index:Int,modifier:Modifier=Modifier,onOpen:(Person)->Unit){
  Surface(color=Card,shape=RoundedCornerShape(22.dp),border=BorderStroke(1.dp,Color(0xFF292936)),modifier=modifier.clickable{onOpen(p)}) {
   Box(Modifier.fillMaxWidth().height(238.dp)) {
-   val image=ImageBitmap.imageResource(R.drawable.nebula_portraits)
-   val tileWidth=image.width/2; val tileHeight=image.height/2; val tile=((index%4)+4)%4
+   val image=rememberPortraitSheet()
+   val tileWidth=(image?.width ?: 2)/2; val tileHeight=(image?.height ?: 2)/2; val tile=((index%4)+4)%4
    Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
-    drawImage(image,srcOffset=IntOffset((tile%2)*tileWidth,(tile/2)*tileHeight),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt()))
+    if(image != null) drawImage(image,srcOffset=IntOffset((tile%2)*tileWidth,(tile/2)*tileHeight),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt())) else drawRect(Color(0xFF302744))
     drawRect(Brush.verticalGradient(0f to Color.Transparent,0.42f to Color(0x22000000),1f to Color(0xE8000000)))
    }
    Surface(color=Color(0xAA15151D),shape=RoundedCornerShape(20.dp),modifier=Modifier.align(Alignment.TopStart).padding(9.dp)) {
@@ -445,12 +455,12 @@ private fun decodeChats(json:String):List<ChatSession> = try {
 }
 
 @Composable private fun PortraitAvatar(index:Int,size:Int){
- val image = ImageBitmap.imageResource(R.drawable.nebula_portraits)
- val tileWidth = image.width / 2
- val tileHeight = image.height / 2
+ val image = rememberPortraitSheet()
+ val tileWidth = (image?.width ?: 2) / 2
+ val tileHeight = (image?.height ?: 2) / 2
  val tile = ((index % 4) + 4) % 4
  Canvas(Modifier.size(size.dp).clip(RoundedCornerShape(16.dp))) {
-  drawImage(
+  if(image != null) drawImage(
    image = image,
    srcOffset = IntOffset((tile % 2) * tileWidth, (tile / 2) * tileHeight),
    srcSize = IntSize(tileWidth, tileHeight),
