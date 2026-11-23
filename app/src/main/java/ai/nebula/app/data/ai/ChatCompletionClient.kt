@@ -3,7 +3,10 @@ package ai.nebula.app.data.ai
 import ai.nebula.app.data.AppSettings
 import ai.nebula.app.data.Character
 import ai.nebula.app.data.ChatMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -25,6 +28,7 @@ class ChatCompletionClient {
         .retryOnConnectionFailure(true)
         .build()
 
+    @OptIn(InternalCoroutinesApi::class)
     suspend fun stream(
         settings: AppSettings,
         character: Character,
@@ -36,7 +40,8 @@ class ChatCompletionClient {
 
         val endpoint = ApiEndpointResolver.resolve(settings.apiBaseUrl)
         val requestHistory = ChatRequestPolicy.selectHistory(history)
-        val continuity = ConversationContextBuilder.build(history)
+        // Only summarize turns older than those sent as regular chat messages.
+        val continuity = ConversationContextBuilder.build(history, recentMessageCount = 24)
         val messages = JSONArray().put(
             JSONObject()
                 .put("role", "system")
@@ -65,34 +70,50 @@ class ChatCompletionClient {
             .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
             .build()
 
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                val details = response.body?.string().orEmpty()
-                throw IOException(mapHttpError(response.code, details))
-            }
-            val source = response.body?.source() ?: throw IOException("Провайдер вернул пустой ответ.")
-            while (!source.exhausted()) {
-                currentCoroutineContext().ensureActive()
-                val line = source.readUtf8Line() ?: break
-                if (!line.startsWith("data:")) continue
-                val data = line.removePrefix("data:").trim()
-                if (data == "[DONE]") break
-                if (data.isBlank()) continue
+        val call = client.newCall(request)
+        val parentJob = currentCoroutineContext()[Job]
+        val cancellationHandle = parentJob?.invokeOnCompletion(
+            onCancelling = true,
+            invokeImmediately = true
+        ) { cause ->
+            if (cause is CancellationException) call.cancel()
+        }
 
-                val event = runCatching { JSONObject(data) }.getOrNull() ?: continue
-                val providerError = event.optJSONObject("error")
-                if (providerError != null) {
-                    throw IOException(providerError.optString("message", "Ошибка генерации у провайдера."))
+        try {
+            call.execute().use { response ->
+                if (!response.isSuccessful) {
+                    val details = response.body?.string().orEmpty()
+                    throw IOException(mapHttpError(response.code, details))
                 }
-                val delta = event.optJSONArray("choices")
-                    ?.optJSONObject(0)
-                    ?.optJSONObject("delta")
-                    ?.optString("content")
-                    .orEmpty()
-                if (delta.isNotEmpty()) {
-                    withContext(Dispatchers.Main.immediate) { onChunk(delta) }
+                val source = response.body?.source()
+                    ?: throw IOException("Провайдер вернул пустой ответ.")
+                while (!source.exhausted()) {
+                    currentCoroutineContext().ensureActive()
+                    val line = source.readUtf8Line() ?: break
+                    if (!line.startsWith("data:")) continue
+                    val data = line.removePrefix("data:").trim()
+                    if (data == "[DONE]") break
+                    if (data.isBlank()) continue
+
+                    val event = runCatching { JSONObject(data) }.getOrNull() ?: continue
+                    val providerError = event.optJSONObject("error")
+                    if (providerError != null) {
+                        throw IOException(
+                            providerError.optString("message", "Ошибка генерации у провайдера.")
+                        )
+                    }
+                    val delta = event.optJSONArray("choices")
+                        ?.optJSONObject(0)
+                        ?.optJSONObject("delta")
+                        ?.optString("content")
+                        .orEmpty()
+                    if (delta.isNotEmpty()) {
+                        withContext(Dispatchers.Main.immediate) { onChunk(delta) }
+                    }
                 }
             }
+        } finally {
+            cancellationHandle?.dispose()
         }
     }
 
@@ -107,6 +128,7 @@ class ChatCompletionClient {
             in 500..599 -> "Временная ошибка AI-провайдера (" + code + ")."
             else -> "Ошибка API " + code + "."
         }
-        return message + details.takeIf { it.isNotBlank() }?.let { " Подробности: " + it.take(240) }.orEmpty()
+        return message + details.takeIf { it.isNotBlank() }
+            ?.let { " Подробности: " + it.take(240) }.orEmpty()
     }
 }
