@@ -139,7 +139,7 @@ private val people = listOf(
      Spacer(Modifier.height(22.dp))
      Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();lines.add(Line(false,"Привет! Я ${selected.name}."));page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
     }
-    "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=true},{save(base,model,apiKey,true);page="home"},{page="home"})
+    "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=true},{save(base,model,apiKey,cleanModeState);page="home"},{page="home"})
     "profile" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) { Text("ПРОФИЛЬ",fontSize=24.sp,fontWeight=FontWeight.Black); Spacer(Modifier.height(18.dp)); Surface(color=Card,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){BrandMark(72);Text("ТВОЯ ВСЕЛЕННАЯ",fontWeight=FontWeight.Bold);Text("Создавай персонажей и истории.",color=Muted,fontSize=12.sp)}};Spacer(Modifier.height(16.dp));Button(onClick={page="create"},modifier=Modifier.fillMaxWidth()){Text("Создать персонажа")} }
     "chat" -> Column(Modifier.fillMaxSize()) {
      Row(Modifier.fillMaxWidth().background(Card).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -172,12 +172,13 @@ private val people = listOf(
  }
  
 
+}
 
 @Composable private fun SettingsScreen(base:String,onBase:(String)->Unit,model:String,onModel:(String)->Unit,key:String,onKey:(String)->Unit,clean:Boolean,onClean:(Boolean)->Unit,onSave:()->Unit,onBack:()->Unit){
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=20.dp,vertical=16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Outlined.ArrowBack,null,tint=Color.White)};Text("Настройки",fontSize=24.sp,fontWeight=FontWeight.Black)}
   Text("ПЕРСОНАЛИЗАЦИЯ",fontSize=11.sp,color=Purple,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=20.dp,bottom=10.dp))
-  Surface(color=Card,shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Shield,null,tint=Purple);Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text("Чистый режим",fontWeight=FontWeight.Bold);Text("Безопасное общение и фильтр откровенного контента.",fontSize=12.sp,color=Muted)};Switch(checked=true,onCheckedChange={},enabled=false)};Text("Чистый режим включён постоянно.",fontSize=11.sp,color=Muted)}}
+  Surface(color=Card,shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Shield,null,tint=Purple);Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text("Чистый режим",fontWeight=FontWeight.Bold);Text("Фильтр грубой лексики и нежелательных выражений.",fontSize=12.sp,color=Muted)};Switch(checked=clean,onCheckedChange=onClean)};Text("Фильтр можно включать и выключать. Ограничения безопасности сохраняются всегда.",fontSize=11.sp,color=Muted)}}
   Text("ПОДКЛЮЧЕНИЕ AI",fontSize=11.sp,color=Purple,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=24.dp,bottom=8.dp))
   Text("Адрес API",fontSize=12.sp,color=Muted);FieldInput(base,onBase,"https://api.orcarouter.ai/v1")
   Spacer(Modifier.height(12.dp));Text("Модель",fontSize=12.sp,color=Muted);FieldInput(model,onModel,"Название модели")
