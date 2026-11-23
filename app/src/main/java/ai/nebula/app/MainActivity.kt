@@ -656,10 +656,10 @@ private fun personColors(index:Int):List<Color> = when(((index%4)+4)%4) {
    lastVisible >= info.totalItemsCount-2
   }.collect { followOutput=it }
  }
- LaunchedEffect(lines.size,lines.lastOrNull()?.text?.length,busy,error) {
+ LaunchedEffect(lines.size,busy,error) {
   if(lines.isNotEmpty() && followOutput) {
    val target=lines.lastIndex+(if(busy)1 else 0)+(if(error.isNotBlank())1 else 0)
-   listState.scrollToItem(target.coerceAtLeast(0))
+   listState.animateScrollToItem(target.coerceAtLeast(0))
   }
  }
  Box(Modifier.fillMaxSize().background(Bg)) {
