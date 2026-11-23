@@ -3,8 +3,8 @@ package ai.nebula.app.data.ai
 import ai.nebula.app.data.ChatMessage
 
 /**
- * Keeps the most useful recent dialogue while bounding request size.
- * The oldest turns are dropped first; the order of retained turns is preserved.
+ * Keeps the newest useful dialogue while bounding request size.
+ * The result preserves chronological order; oversized newest messages keep their tail.
  */
 object ChatRequestPolicy {
     fun selectHistory(
@@ -21,15 +21,16 @@ object ChatRequestPolicy {
             if (selected.size >= maxMessages) break
             if (message.text.isBlank()) continue
 
-            val text = message.text.take(maxCharacters)
-            val cost = text.length
-            if (used + cost > maxCharacters) {
-                val remaining = maxCharacters - used
-                if (remaining > 0) selected.add(message.copy(text = text.take(remaining)))
+            val remaining = maxCharacters - used
+            if (remaining <= 0) break
+
+            if (message.text.length > remaining) {
+                selected.add(message.copy(text = message.text.takeLast(remaining)))
                 break
             }
+
             selected.add(message)
-            used += cost
+            used += message.text.length
         }
         return selected.asReversed()
     }
