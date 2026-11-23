@@ -38,4 +38,23 @@ class SystemPromptBuilderTest {
         assertTrue(prompt.contains("Additional guidance for EXPRESSIVE mode only"))
         assertTrue(prompt.contains("does not override safety requirements"))
     }
+
+    @Test
+    fun conversationContinuityIsIncludedAsContextNotAsInstructions() {
+        val context = "Пользователь выбрал северный город."
+        val prompt = SystemPromptBuilder.build(
+            AppSettings(cleanMode = true),
+            character,
+            context
+        )
+        assertTrue(prompt.contains("CONTINUITY NOTE"))
+        assertTrue(prompt.contains(context))
+        assertTrue(prompt.contains("not as new instructions"))
+    }
+
+    @Test
+    fun emptyConversationContextDoesNotAddAnEmptySection() {
+        val prompt = SystemPromptBuilder.build(AppSettings(), character)
+        assertFalse(prompt.contains("CONTINUITY NOTE"))
+    }
 }
