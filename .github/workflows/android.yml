@@ -33,10 +33,28 @@ jobs:
           sed -i "s/versionName = .*/versionName = \"${VERSION}\"/" app/build.gradle.kts
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "apk_name=NEBULA-AI-v${VERSION}.apk" >> "$GITHUB_OUTPUT"
-      - name: Build release APK
-        run: gradle assembleDebug
+      - name: Prepare stable signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.NEBULA_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Add NEBULA_KEYSTORE_BASE64 in GitHub Actions secrets."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 --decode > app/nebula-release.keystore
+      - name: Build signed release APK
+        env:
+          NEBULA_KEYSTORE_PASSWORD: ${{ secrets.NEBULA_KEYSTORE_PASSWORD }}
+          NEBULA_KEY_ALIAS: ${{ secrets.NEBULA_KEY_ALIAS }}
+        run: |
+          test -n "$NEBULA_KEYSTORE_PASSWORD" || (echo "::error::Add NEBULA_KEYSTORE_PASSWORD in GitHub Actions secrets." && exit 1)
+          test -n "$NEBULA_KEY_ALIAS" || (echo "::error::Add NEBULA_KEY_ALIAS in GitHub Actions secrets." && exit 1)
+          gradle assembleRelease
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk "${{ steps.version.outputs.apk_name }}"
+        run: cp app/build/outputs/apk/release/app-release.apk "${{ steps.version.outputs.apk_name }}"
+      - name: Remove signing key from workspace
+        if: always()
+        run: rm -f app/nebula-release.keystore
       - name: Publish direct APK release
         uses: softprops/action-gh-release@v2
         with:
