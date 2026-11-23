@@ -185,7 +185,7 @@ private val people = listOf(
 @Composable private fun RichMessageText(text:String,user:Boolean){
  val styled=remember(text,user){
   buildAnnotatedString {
-   text.replace("\\r\\n","\\n").split("\\n").forEachIndexed{index,raw->
+   text.replace("\r\n","\n").split("\n").forEachIndexed{index,raw->
     val isDialogue=raw.startsWith("- ")
     if(isDialogue) withStyle(SpanStyle(color=if(user)Color.White.copy(alpha=.9f) else Purple,fontWeight=FontWeight.Bold)){append("— ")}
     val content=if(isDialogue)raw.removePrefix("- ") else raw
@@ -197,7 +197,7 @@ private val people = listOf(
      cursor=m.range.last+1
     }
     append(content.substring(cursor))
-    if(index<text.replace("\\r\\n","\\n").split("\\n").lastIndex)append("\\n")
+    if(index<text.replace("\r\n","\n").split("\n").lastIndex)append("\n")
    }
   }
  }
