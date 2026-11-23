@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
-    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","openai/gpt-5.5-pro")!!, p.getString("key","")!!) { b,m,k ->
+    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!) { b,m,k ->
      p.edit().putString("base",b).putString("model",m).putString("key",k).apply()
     }
    }
@@ -167,6 +167,10 @@ private val people = listOf(
   Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
    Text("Адрес API",color=Muted,fontSize=12.sp);FieldInput(base,{base=it},"https://provider.example/v1")
    Text("Модель",color=Muted,fontSize=12.sp);FieldInput(model,{model=it},"Название модели")
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+    TextButton(onClick={model="deepseek/deepseek-v4.1-flash-free"}){Text("DeepSeek V4.1 Flash Free",fontSize=10.sp)}
+    TextButton(onClick={model="orcarouter/free"}){Text("OrcaRouter Free",fontSize=10.sp)}
+   }
    Text("API-ключ",color=Muted,fontSize=12.sp);FieldInput(apiKey,{apiKey=it},"Ключ провайдера")
    Text("В приложении нет платных сообщений. API-провайдер может взимать плату за запросы. Не публикуй APK с личным ключом.",fontSize=11.sp,color=Muted)
   }
