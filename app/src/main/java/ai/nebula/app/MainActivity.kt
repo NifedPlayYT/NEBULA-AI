@@ -54,8 +54,8 @@ class MainActivity : ComponentActivity() {
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
-    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!) { b,m,k ->
-     p.edit().putString("base",b).putString("model",m).putString("key",k).apply()
+    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!, p.getBoolean("clean_mode",true)) { b,m,k,clean ->
+     p.edit().putString("base",b).putString("model",m).putString("key",k).putBoolean("clean_mode",clean).apply()
     }
    }
   }
@@ -70,7 +70,7 @@ private val people = listOf(
  Person("Мира","@nebula","Загадочная собеседница со своей историей.","Фэнтези","М")
 )
 
-@Composable private fun Nebula(base0:String, model0:String, key0:String, save:(String,String,String)->Unit) {
+@Composable private fun Nebula(base0:String, model0:String, key0:String, clean0:Boolean, save:(String,String,String,Boolean)->Unit) {
  var page by remember { mutableStateOf("home") }
  var selected by remember { mutableStateOf(people[0]) }
  var category by remember { mutableStateOf("Все") }
@@ -78,7 +78,7 @@ private val people = listOf(
  var base by remember { mutableStateOf(base0) }
  var model by remember { mutableStateOf(model0) }
  var apiKey by remember { mutableStateOf(key0) }
- var showSettings by remember { mutableStateOf(false) }
+ var cleanModeState by remember { mutableStateOf(clean0) }
  var name by remember { mutableStateOf("") }
  var bio by remember { mutableStateOf("") }
  var input by remember { mutableStateOf("") }
@@ -101,8 +101,9 @@ private val people = listOf(
    NavItem("Главная",Icons.Outlined.Home){page="home";scope.launch{drawer.close()}}
    NavItem("Каталог",Icons.Outlined.GridView){page="home";scope.launch{drawer.close()}}
    NavItem("Мои чаты",Icons.Outlined.Forum){page="chats";scope.launch{drawer.close()}}
+   NavItem("Профиль",Icons.Outlined.Person){page="profile";scope.launch{drawer.close()}}
    Spacer(Modifier.weight(1f))
-   NavItem("Настройки AI",Icons.Outlined.Settings){showSettings=true;scope.launch{drawer.close()}}
+   NavItem("Настройки AI",Icons.Outlined.Settings){page="settings";scope.launch{drawer.close()}}
    Text("Сообщения в NEBULA бесплатны. Тарифы API зависят от провайдера.",fontSize=11.sp,color=Muted,modifier=Modifier.padding(20.dp))
   }
  }) {
@@ -138,15 +139,17 @@ private val people = listOf(
      Spacer(Modifier.height(22.dp))
      Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();lines.add(Line(false,"Привет! Я ${selected.name}."));page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
     }
+    "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=true},{save(base,model,apiKey,true);page="home"},{page="home"})
+    "profile" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) { Text("ПРОФИЛЬ",fontSize=24.sp,fontWeight=FontWeight.Black); Spacer(Modifier.height(18.dp)); Surface(color=Card,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){BrandMark(72);Text("ТВОЯ ВСЕЛЕННАЯ",fontWeight=FontWeight.Bold);Text("Создавай персонажей и истории.",color=Muted,fontSize=12.sp)}};Spacer(Modifier.height(16.dp));Button(onClick={page="create"},modifier=Modifier.fillMaxWidth()){Text("Создать персонажа")} }
     "chat" -> Column(Modifier.fillMaxSize()) {
      Row(Modifier.fillMaxWidth().background(Card).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
       IconButton(onClick={page="home"}){Icon(Icons.Outlined.ArrowBack,null)}
-      Column(Modifier.weight(1f)){Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text("Персонаж NEBULA",fontSize=11.sp,color=Muted)}
+      Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically){PortraitAvatar(people.indexOfFirst{it.name==selected.name}.coerceAtLeast(0),42);Spacer(Modifier.width(10.dp));Column{Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text("Персонаж NEBULA",fontSize=11.sp,color=Muted)}}
       Icon(Icons.Outlined.MoreVert,null,tint=Muted)
      }
      LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal=14.dp),contentPadding=PaddingValues(vertical=16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
       items(lines){line->Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start){
-       Surface(color=if(line.user)Purple else Card,shape=RoundedCornerShape(17.dp),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
+       Surface(color=if(line.user)Color(0xFF8060E8) else Color(0xFF20202E),shape=RoundedCornerShape(topStart=if(line.user)18.dp else 7.dp,topEnd=if(line.user)7.dp else 18.dp,bottomStart=18.dp,bottomEnd=18.dp),border=if(line.user)null else BorderStroke(1.dp,Border),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
       }}
       if(busy)item{Text("${selected.name} печатает…",color=Muted)}
       if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp)}
@@ -167,21 +170,23 @@ private val people = listOf(
    }
   }
  }
- if(showSettings) AlertDialog(onDismissRequest={showSettings=false},containerColor=Card,title={Text("Подключение AI")},text={
-  Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-   Text("Адрес API",color=Muted,fontSize=12.sp);FieldInput(base,{base=it},"https://provider.example/v1")
-   Text("Модель",color=Muted,fontSize=12.sp);FieldInput(model,{model=it},"Название модели")
-   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-    TextButton(onClick={model="deepseek/deepseek-v4.1-flash-free"}){Text("DeepSeek V4.1 Flash Free",fontSize=10.sp)}
-    TextButton(onClick={model="orcarouter/free"}){Text("OrcaRouter Free",fontSize=10.sp)}
-   }
-   Text("API-ключ",color=Muted,fontSize=12.sp);FieldInput(apiKey,{apiKey=it},"Ключ провайдера")
-   Text("В приложении нет платных сообщений. API-провайдер может взимать плату за запросы. Не публикуй APK с личным ключом.",fontSize=11.sp,color=Muted)
-  }
- },confirmButton={TextButton(onClick={save(base,model,apiKey);showSettings=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={showSettings=false}){Text("Отмена")}})
+ 
+
+
+@Composable private fun SettingsScreen(base:String,onBase:(String)->Unit,model:String,onModel:(String)->Unit,key:String,onKey:(String)->Unit,clean:Boolean,onClean:(Boolean)->Unit,onSave:()->Unit,onBack:()->Unit){
+ Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=20.dp,vertical=16.dp)){
+  Row(verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Outlined.ArrowBack,null,tint=Color.White)};Text("Настройки",fontSize=24.sp,fontWeight=FontWeight.Black)}
+  Text("ПЕРСОНАЛИЗАЦИЯ",fontSize=11.sp,color=Purple,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=20.dp,bottom=10.dp))
+  Surface(color=Card,shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.Shield,null,tint=Purple);Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text("Чистый режим",fontWeight=FontWeight.Bold);Text("Безопасное общение и фильтр откровенного контента.",fontSize=12.sp,color=Muted)};Switch(checked=true,onCheckedChange={},enabled=false)};Text("Чистый режим включён постоянно.",fontSize=11.sp,color=Muted)}}
+  Text("ПОДКЛЮЧЕНИЕ AI",fontSize=11.sp,color=Purple,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=24.dp,bottom=8.dp))
+  Text("Адрес API",fontSize=12.sp,color=Muted);FieldInput(base,onBase,"https://api.orcarouter.ai/v1")
+  Spacer(Modifier.height(12.dp));Text("Модель",fontSize=12.sp,color=Muted);FieldInput(model,onModel,"Название модели")
+  Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick={onModel("deepseek/deepseek-v4.1-flash-free")}){Text("DeepSeek Free",fontSize=11.sp)};TextButton(onClick={onModel("orcarouter/free")}){Text("OrcaRouter Free",fontSize=11.sp)}}
+  Text("API-ключ",fontSize=12.sp,color=Muted);FieldInput(key,onKey,"API-ключ провайдера")
+  Surface(color=Field,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=14.dp)){Text("Не публикуй APK с личным API-ключом. Запросы могут тарифицироваться провайдером.",fontSize=11.sp,color=Muted,modifier=Modifier.padding(14.dp))}
+  Spacer(Modifier.height(22.dp));Button(onClick=onSave,modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(15.dp)){Text("Сохранить настройки",fontWeight=FontWeight.Bold)};Spacer(Modifier.height(18.dp))
+ }
 }
-
-
 @Composable private fun RichMessageText(text:String,user:Boolean){
  val styled=remember(text,user){
   buildAnnotatedString {
@@ -276,7 +281,7 @@ private val people = listOf(
 }
 private suspend fun askAiStream(base:String,model:String,key:String,character:String,personality:String,history:List<Line>,onChunk:(String)->Unit)=withContext(Dispatchers.IO){
  require(base.isNotBlank()&&model.isNotBlank()&&key.isNotBlank()){"Открой настройки API и укажи адрес, модель и ключ."}
- val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Твоя личность и характер: ${personality.ifBlank { "Самостоятельно поддерживай естественный характер и последовательный стиль общения." }}. Строго придерживайся этой личности в каждом ответе. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене оформляй действия строго между одиночными звёздочками, например *сел на пол*; каждое действие должно быть отдельным фрагментом. Реплики персонажа в диалоге начинай с новой строки и тире, например: - Привет, как дела? Не используй Markdown-заголовки и лишние списки. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
+ val msgs=JSONArray().put(JSONObject().put("role","system").put("content","Ты персонаж по имени $character. Соблюдай чистый режим: не создавай сексуальный, эротический или откровенный контент. Твоя личность и характер: ${personality.ifBlank { "Самостоятельно поддерживай естественный характер и последовательный стиль общения." }}. Строго придерживайся этой личности в каждом ответе. Сохраняй характер и отвечай естественно. Пиши быстро и по делу: обычно 1–4 коротких предложения. Не повторяй вопрос и не добавляй лишние вступления. В ролевой сцене оформляй действия строго между одиночными звёздочками, например *сел на пол*; каждое действие должно быть отдельным фрагментом. Реплики персонажа в диалоге начинай с новой строки и тире, например: - Привет, как дела? Не используй Markdown-заголовки и лишние списки. В ролевой сцене описывай только нужные действия и реплики, не растягивай ответ без причины. Если пользователь просит подробности — отвечай подробнее."))
  history.takeLast(16).forEach{msgs.put(JSONObject().put("role",if(it.user)"user" else "assistant").put("content",it.text))}
  val body=JSONObject().put("model",model).put("messages",msgs).put("temperature",0.75).put("max_tokens",350).put("stream",true).toString().toRequestBody("application/json; charset=utf-8".toMediaType())
  val req=Request.Builder().url(base.trimEnd('/')+"/chat/completions").header("Authorization","Bearer $key").header("Accept","text/event-stream").post(body).build()
