@@ -139,7 +139,7 @@ private val people = listOf(
      Spacer(Modifier.height(22.dp))
      Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();lines.add(Line(false,"Привет! Я ${selected.name}."));page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
     }
-    "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=true},{save(base,model,apiKey,cleanModeState);page="home"},{page="home"})
+    "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=it},{save(base,model,apiKey,cleanModeState);page="home"},{page="home"})
     "profile" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) { Text("ПРОФИЛЬ",fontSize=24.sp,fontWeight=FontWeight.Black); Spacer(Modifier.height(18.dp)); Surface(color=Card,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){BrandMark(72);Text("ТВОЯ ВСЕЛЕННАЯ",fontWeight=FontWeight.Bold);Text("Создавай персонажей и истории.",color=Muted,fontSize=12.sp)}};Spacer(Modifier.height(16.dp));Button(onClick={page="create"},modifier=Modifier.fillMaxWidth()){Text("Создать персонажа")} }
     "chat" -> Column(Modifier.fillMaxSize()) {
      Row(Modifier.fillMaxWidth().background(Card).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
