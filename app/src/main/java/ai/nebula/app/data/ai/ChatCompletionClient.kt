@@ -31,24 +31,23 @@ class ChatCompletionClient {
         history: List<ChatMessage>,
         onChunk: (String) -> Unit
     ) = withContext(Dispatchers.IO) {
-        require(settings.apiBaseUrl.isNotBlank()) { "Укажи адрес API в настройках." }
         require(settings.model.isNotBlank()) { "Укажи название модели в настройках." }
         require(settings.apiKey.isNotBlank()) { "Добавь API-ключ в настройках." }
 
-        val endpoint = settings.apiBaseUrl.trim().trimEnd('/') + "/chat/completions"
+        val endpoint = ApiEndpointResolver.resolve(settings.apiBaseUrl)
+        val requestHistory = ChatRequestPolicy.selectHistory(history)
+        val continuity = ConversationContextBuilder.build(history)
         val messages = JSONArray().put(
             JSONObject()
                 .put("role", "system")
-                .put("content", SystemPromptBuilder.build(settings, character))
+                .put("content", SystemPromptBuilder.build(settings, character, continuity))
         )
-        history.takeLast(24).forEach { message ->
-            if (message.text.isNotBlank()) {
-                messages.put(
-                    JSONObject()
-                        .put("role", if (message.isUser) "user" else "assistant")
-                        .put("content", message.text)
-                )
-            }
+        requestHistory.forEach { message ->
+            messages.put(
+                JSONObject()
+                    .put("role", if (message.isUser) "user" else "assistant")
+                    .put("content", message.text)
+            )
         }
 
         val payload = JSONObject()
