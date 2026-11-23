@@ -188,8 +188,11 @@ private val people = listOf(
       Text("МОИ ЧАТЫ",fontSize=24.sp,fontWeight=FontWeight.Black); Text("Твои сохранённые диалоги",color=Muted,modifier=Modifier.padding(top=4.dp,bottom=16.dp))
       if(sessions.isEmpty()) Text("Пока здесь пусто. Открой персонажа, чтобы начать диалог.",color=Muted)
       sessions.sortedByDescending{it.updatedAt}.forEach { session ->
-       Surface(color=Card,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(vertical=5.dp).clickable { currentChatId=session.id; selected=session.person; lines.clear(); lines.addAll(session.lines); error=""; page="chat" }) {
-        Column(Modifier.padding(15.dp)) { Text(session.person.name,fontWeight=FontWeight.Bold,fontSize=16.sp); Text(session.lines.lastOrNull()?.text?.ifBlank { "Диалог начат" } ?: "Диалог начат",color=Muted,fontSize=12.sp,maxLines=2,modifier=Modifier.padding(top=5.dp)) }
+       Surface(color=Card,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(vertical=5.dp)) {
+        Row(Modifier.clickable { currentChatId=session.id; selected=session.person; lines.clear(); lines.addAll(session.lines); error=""; page="chat" }.padding(start=15.dp,end=7.dp,top=10.dp,bottom=10.dp),verticalAlignment=Alignment.CenterVertically) {
+         Column(Modifier.weight(1f).padding(vertical=5.dp)) { Text(session.person.name,fontWeight=FontWeight.Bold,fontSize=16.sp); Text(session.lines.lastOrNull()?.text?.ifBlank { "Диалог начат" } ?: "Диалог начат",color=Muted,fontSize=12.sp,maxLines=2,modifier=Modifier.padding(top=5.dp)) }
+         IconButton(onClick={sessions.removeAll{it.id==session.id};saveChats(encodeChats(sessions.toList()))}) { Icon(Icons.Outlined.DeleteOutline,"Удалить чат",tint=Muted) }
+        }
        }
       }
       Button(onClick={page="home"},modifier=Modifier.fillMaxWidth().padding(top=14.dp)){Text("К персонажам")}
