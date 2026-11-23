@@ -205,7 +205,7 @@ private val people = listOf(
       Spacer(Modifier.width(8.dp))
       IconButton(enabled=input.isNotBlank()&&!busy,onClick={
        val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error="";persistCurrentChat()
-       scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,cleanModeState,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk);persistCurrentChat()};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{busy=false}}
+       scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,cleanModeState,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{persistCurrentChat();busy=false}}
       },modifier=Modifier.background(Purple,RoundedCornerShape(14.dp))){Icon(Icons.Outlined.Send,"Отправить",tint=Color.White)}
      }
     }
