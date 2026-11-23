@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -15,6 +16,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
@@ -207,7 +211,7 @@ private val people = listOf(
     else -> Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text("Страница не найдена",color=Muted)}
    }
   }
-  if(page=="home" || page=="chats" || page=="profile") {
+  if(page=="home" || page=="chats" || page=="create" || page=="profile") {
    BottomTabBar(
     current=page,
     onSelect={ page=it }
@@ -217,24 +221,47 @@ private val people = listOf(
 }
 
 @Composable private fun BottomTabBar(current:String,onSelect:(String)->Unit) {
- Box(Modifier.fillMaxWidth().background(Bg).navigationBarsPadding().padding(horizontal=13.dp,vertical=7.dp)) {
-  Surface(color=Color(0xF0181A29),shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,Color(0xFF39344E)),shadowElevation=12.dp,modifier=Modifier.fillMaxWidth()) {
-   Row(Modifier.fillMaxWidth().height(67.dp).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
+ val pulse=rememberInfiniteTransition(label="dock-glow")
+ val glow by pulse.animateFloat(initialValue=.14f,targetValue=.32f,animationSpec=infiniteRepeatable(animation=tween(1800),repeatMode=RepeatMode.Reverse),label="dock-pulse")
+ Surface(
+  color=Color(0xF7111420),
+  shape=RoundedCornerShape(27.dp),
+  border=BorderStroke(1.dp,Color(0xFF3A3550)),
+  shadowElevation=20.dp,
+  modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp).navigationBarsPadding().padding(top=7.dp,bottom=8.dp)
+ ) {
+  Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xFF1B1C2C),Color(0xFF111420)))).padding(horizontal=10.dp,vertical=9.dp)) {
+   Row(Modifier.fillMaxWidth().padding(horizontal=5.dp),verticalAlignment=Alignment.CenterVertically) {
+    BrandMark(19)
+    Spacer(Modifier.width(7.dp))
+    Text("NEBULA",fontSize=8.sp,fontWeight=FontWeight.Black,letterSpacing=1.7.sp,color=Color(0xFFDBD2F7))
+    Spacer(Modifier.weight(1f))
+    Box(Modifier.size(5.dp).background(Color(0xFF8CE0B6).copy(alpha=glow+0.45f),CircleShape))
+    Spacer(Modifier.width(5.dp))
+    Text("ТВОЁ ПРОСТРАНСТВО",fontSize=8.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,color=Muted)
+   }
+   Spacer(Modifier.height(8.dp))
+   Row(Modifier.fillMaxWidth().height(60.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)) {
     BottomTab("chats","Чаты",Icons.Outlined.Forum,current=="chats",Modifier.weight(1f)){onSelect("chats")}
     BottomTab("home","Каталог",Icons.Outlined.Explore,current=="home",Modifier.weight(1f)){onSelect("home")}
+    BottomTab("create","Создать",Icons.Outlined.AddCircleOutline,current=="create",Modifier.weight(1f)){onSelect("create")}
     BottomTab("profile","Профиль",Icons.Outlined.PersonOutline,current=="profile",Modifier.weight(1f)){onSelect("profile")}
    }
   }
  }
 }
 @Composable private fun BottomTab(key:String,label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,selected:Boolean,modifier:Modifier=Modifier,onClick:()->Unit) {
- Column(modifier=modifier.fillMaxHeight().clip(RoundedCornerShape(18.dp)).clickable{onClick()}.padding(vertical=3.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-  Box(contentAlignment=Alignment.Center) {
-   if(selected) Box(Modifier.size(width=68.dp,height=34.dp).background(Brush.linearGradient(listOf(Color(0xFF59477E),Color(0xFF302747))),RoundedCornerShape(17.dp)).border(1.dp,Color(0xFF7662A4),RoundedCornerShape(17.dp)))
-   Icon(icon,contentDescription=label,tint=if(selected)Color(0xFFE0D5FF) else Muted,modifier=Modifier.size(21.dp))
+ val tint by animateColorAsState(if(selected)Color(0xFF211A32) else Color(0xFF9A9CB0),animationSpec=spring(),label="tab-tint-"+key)
+ val pillWidth by animateDpAsState(if(selected)82.dp else 42.dp,animationSpec=spring(dampingRatio=.72f,stiffness=420f),label="tab-width-"+key)
+ Column(modifier=modifier.fillMaxHeight().clip(RoundedCornerShape(18.dp)).clickable{onClick()}.padding(vertical=1.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+  Box(Modifier.fillMaxWidth().height(38.dp),contentAlignment=Alignment.Center) {
+   if(selected) {
+    Box(Modifier.width(pillWidth+8.dp).height(36.dp).background(Brush.linearGradient(listOf(Color(0xFFD9CBFF),Color(0xFF9D83E6),Color(0xFFBDAAFF))),RoundedCornerShape(14.dp)).border(1.dp,Color.White.copy(alpha=.38f),RoundedCornerShape(14.dp)))
+    Box(Modifier.width(pillWidth).height(28.dp).background(Color.White.copy(alpha=.13f),RoundedCornerShape(11.dp)))
+   }
+   Icon(icon,contentDescription=label,tint=tint,modifier=Modifier.size(if(selected)21.dp else 20.dp))
   }
-  Spacer(Modifier.height(3.dp))
-  Text(label,fontSize=10.sp,fontWeight=if(selected)FontWeight.Bold else FontWeight.Medium,color=if(selected)Color(0xFFE0D5FF) else Muted)
+  Text(label,fontSize=9.sp,fontWeight=if(selected)FontWeight.ExtraBold else FontWeight.Medium,color=if(selected)Color(0xFFE0D5FF) else Muted,letterSpacing=.1.sp,maxLines=1)
  }
 }
 
@@ -374,63 +401,95 @@ private fun decodeChats(json:String):List<ChatSession> = try {
 @Composable private fun Home(peopleList:List<Person>,category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onCreate:()->Unit,onOpen:(Person)->Unit) {
  val categories=listOf("Для вас","ОС","Аниме","Игры","Фэнтези","Реализм")
  val shown=peopleList.filter{(category=="Для вас"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
+ val ambience=rememberInfiniteTransition(label="catalog-ambience")
+ val orbAlpha by ambience.animateFloat(initialValue=.12f,targetValue=.27f,animationSpec=infiniteRepeatable(animation=tween(2200),repeatMode=RepeatMode.Reverse),label="catalog-orb")
  Column(Modifier.fillMaxSize().background(Bg)) {
   Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-   Column(Modifier.padding(horizontal=20.dp)) {
-    PageHeader("NEBULA AI","ПРОСТРАНСТВО ТВОИХ ИСТОРИЙ",action=onCreate)
-    Row(Modifier.fillMaxWidth().padding(top=23.dp),verticalAlignment=Alignment.Bottom) {
-     Column(Modifier.weight(1f)) {
-      Text("ТВОЯ СЛЕДУЮЩАЯ",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Yellow,letterSpacing=2.sp)
-      Text("история",fontSize=37.sp,fontWeight=FontWeight.Black,color=Color.White,letterSpacing=(-1.5).sp)
-      Text("начинается здесь.",fontSize=27.sp,fontWeight=FontWeight.SemiBold,color=Purple,letterSpacing=(-.8).sp)
-     }
-     Box(Modifier.size(54.dp).background(Brush.linearGradient(listOf(Color(0xFF57427E),Color(0xFF24243C))),CircleShape),contentAlignment=Alignment.Center) {
-      Icon(Icons.Outlined.AutoAwesome,null,tint=Yellow,modifier=Modifier.size(26.dp))
+   Column(Modifier.padding(horizontal=17.dp)) {
+    PageHeader("NEBULA AI","ТВОЯ ВСЕЛЕННАЯ ДИАЛОГОВ",action=onCreate)
+    Surface(color=Color(0xFF171A29),shape=RoundedCornerShape(29.dp),border=BorderStroke(1.dp,Color(0xFF4A4164)),modifier=Modifier.fillMaxWidth().padding(top=15.dp)) {
+     Box(Modifier.fillMaxWidth().height(232.dp).background(Brush.linearGradient(listOf(Color(0xFF3B3158),Color(0xFF25263D),Color(0xFF151B2B))))) {
+      Canvas(Modifier.matchParentSize()) {
+       drawCircle(Color(0x337E6CC6).copy(alpha=orbAlpha+0.12f),radius=size.width*.46f,center=androidx.compose.ui.geometry.Offset(size.width*.93f,size.height*.16f))
+       drawCircle(Color(0x1E9A8AE8),radius=size.width*.28f,center=androidx.compose.ui.geometry.Offset(size.width*.91f,size.height*.19f))
+       drawCircle(Color(0x18E5D9FF),radius=size.width*.13f,center=androidx.compose.ui.geometry.Offset(size.width*.91f,size.height*.19f))
+       drawCircle(Color(0x338A7BD0),radius=size.width*.17f,center=androidx.compose.ui.geometry.Offset(size.width*.02f,size.height*.98f))
+      }
+      Column(Modifier.fillMaxSize().padding(18.dp)) {
+       Row(verticalAlignment=Alignment.CenterVertically) {
+        Surface(color=Color(0x55E7DAFF),shape=RoundedCornerShape(8.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.19f))) {
+         Text("PERSONA DISCOVERY",fontSize=8.sp,fontWeight=FontWeight.Black,letterSpacing=1.25.sp,color=Color(0xFFE6DCFF),modifier=Modifier.padding(horizontal=9.dp,vertical=6.dp))
+        }
+        Spacer(Modifier.weight(1f))
+        Row(verticalAlignment=Alignment.CenterVertically) {
+         Box(Modifier.size(6.dp).background(Color(0xFF8FE0B8),CircleShape))
+         Spacer(Modifier.width(5.dp))
+         Text("ONLINE",fontSize=8.sp,color=Color(0xFFC4E9D5),fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+        }
+       }
+       Spacer(Modifier.height(17.dp))
+       Text("НЕ ПРОСТО ЧАТ.",fontSize=9.sp,fontWeight=FontWeight.Black,color=Yellow,letterSpacing=2.sp)
+       Text("Твоя следующая",fontSize=29.sp,fontWeight=FontWeight.Black,color=Color.White,letterSpacing=(-1.1).sp)
+       Text("история начинается здесь.",fontSize=23.sp,fontWeight=FontWeight.Bold,color=Color(0xFFD5C7FF),lineHeight=27.sp,letterSpacing=(-.7).sp)
+       Spacer(Modifier.weight(1f))
+       Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+         Text("\${peopleList.size} ПЕРСОНАЖЕЙ В КАТАЛОГЕ",fontSize=8.sp,color=Color.White.copy(alpha=.68f),fontWeight=FontWeight.Bold,letterSpacing=.8.sp)
+         Text("Выбери собеседника",fontSize=12.sp,color=Color.White,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(top=3.dp))
+        }
+        Button(onClick=onCreate,shape=RoundedCornerShape(14.dp),contentPadding=PaddingValues(horizontal=13.dp,vertical=9.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFD4C7FF),contentColor=Color(0xFF211A32))) {
+         Icon(Icons.Outlined.Add,null,modifier=Modifier.size(15.dp))
+         Spacer(Modifier.width(5.dp))
+         Text("Создать",fontSize=10.sp,fontWeight=FontWeight.ExtraBold)
+        }
+       }
+      }
      }
     }
-    Text("Выбирай характер, открывай новые миры и продолжай диалог в своём темпе.",fontSize=13.sp,lineHeight=19.sp,color=Muted,modifier=Modifier.padding(top=10.dp,bottom=19.dp))
-    Surface(color=Color(0xFF171A29),shape=RoundedCornerShape(19.dp),border=BorderStroke(1.dp,Color(0xFF343149)),modifier=Modifier.fillMaxWidth()) {
-     Row(Modifier.padding(horizontal=15.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically) {
-      Icon(Icons.Outlined.Search,null,tint=Purple,modifier=Modifier.size(21.dp))
-      Spacer(Modifier.width(11.dp))
-      BasicTextField(search,onSearch,modifier=Modifier.weight(1f),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=14.sp),decorationBox={inner->if(search.isEmpty())Text("Имя, жанр или настроение",color=Muted,fontSize=13.sp);inner()})
-      if(search.isNotEmpty()) IconButton(onClick={onSearch("")},modifier=Modifier.size(24.dp)){Icon(Icons.Outlined.Close,null,tint=Muted,modifier=Modifier.size(17.dp))}
+    Surface(color=Color(0xFF171A27),shape=RoundedCornerShape(17.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(top=13.dp)) {
+     Row(Modifier.padding(horizontal=13.dp,vertical=3.dp),verticalAlignment=Alignment.CenterVertically) {
+      Icon(Icons.Outlined.Search,null,tint=Purple,modifier=Modifier.size(20.dp))
+      Spacer(Modifier.width(10.dp))
+      BasicTextField(search,onSearch,modifier=Modifier.weight(1f).padding(vertical=13.dp),singleLine=true,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=13.sp),decorationBox={inner->if(search.isEmpty())Text("Найти персонажа, жанр или настроение…",color=Muted,fontSize=11.sp);inner()})
+      if(search.isNotBlank()) IconButton(onClick={onSearch("")},modifier=Modifier.size(30.dp)){Icon(Icons.Outlined.Close,null,tint=Muted,modifier=Modifier.size(16.dp))}
      }
     }
    }
-   Box(Modifier.padding(horizontal=20.dp).padding(top=17.dp).fillMaxWidth().height(154.dp).clip(RoundedCornerShape(25.dp)).background(Brush.linearGradient(listOf(Color(0xFF453565),Color(0xFF24233B),Color(0xFF172331))))) {
-    Canvas(Modifier.fillMaxSize()) {
-     drawCircle(Color(0x337F69C8),radius=size.minDimension*.65f,center=androidx.compose.ui.geometry.Offset(size.width*.92f,size.height*.08f))
-     drawCircle(Color(0x227BD3C9),radius=size.minDimension*.38f,center=androidx.compose.ui.geometry.Offset(size.width*.88f,size.height*.85f))
+   Row(Modifier.fillMaxWidth().padding(start=18.dp,end=18.dp,top=19.dp,bottom=10.dp),verticalAlignment=Alignment.CenterVertically) {
+    Column(Modifier.weight(1f)) {
+     Text("НАВИГАЦИЯ ПО МИРАМ",fontSize=8.sp,color=Yellow,fontWeight=FontWeight.Black,letterSpacing=1.7.sp)
+     Text("Выбери настроение",fontSize=19.sp,fontWeight=FontWeight.ExtraBold,color=Color.White,modifier=Modifier.padding(top=3.dp))
     }
-    Column(Modifier.align(Alignment.CenterStart).padding(horizontal=18.dp)) {
-     Text("NEBULA SELECTION  /  01",fontSize=9.sp,color=Yellow,fontWeight=FontWeight.Bold,letterSpacing=1.5.sp)
-     Text("Не просто чат.",fontSize=21.sp,color=Color.White,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(top=8.dp))
-     Text("Целая история.",fontSize=21.sp,color=Color(0xFFD4C8FF),fontWeight=FontWeight.ExtraBold)
-     Text("Создай своего персонажа  →",fontSize=11.sp,color=Color.White.copy(alpha=.82f),modifier=Modifier.padding(top=8.dp).clickable{onCreate()})
-    }
+    Text("\${categories.size} КАТЕГОРИЙ",fontSize=8.sp,color=Muted,fontWeight=FontWeight.Bold,letterSpacing=.8.sp)
    }
-   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start=20.dp,end=20.dp,top=23.dp,bottom=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+   Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start=17.dp,end=17.dp,bottom=15.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
     categories.forEach { item ->
      val active=category==item
-     Surface(color=if(active)Color(0xFFD5C8FF) else Color(0xFF171A28),shape=RoundedCornerShape(13.dp),border=if(active)null else BorderStroke(1.dp,Border),modifier=Modifier.clickable{onCategory(item)}) {
-      Text(item,fontSize=12.sp,fontWeight=if(active)FontWeight.Bold else FontWeight.Medium,color=if(active)Color(0xFF20182F) else Muted,modifier=Modifier.padding(horizontal=15.dp,vertical=10.dp))
+     val container by animateColorAsState(if(active)Color(0xFFD6C9FF) else Color(0xFF171A29),label="category-"+item)
+     Surface(color=container,shape=RoundedCornerShape(13.dp),border=BorderStroke(1.dp,if(active)Color.White.copy(alpha=.28f) else Border),modifier=Modifier.clickable{onCategory(item)}) {
+      Row(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
+       if(active) Box(Modifier.size(5.dp).background(Color(0xFF5E4B8B),CircleShape))
+       if(active) Spacer(Modifier.width(6.dp))
+       Text(item,fontSize=11.sp,fontWeight=if(active)FontWeight.ExtraBold else FontWeight.SemiBold,color=if(active)Color(0xFF241B35) else Muted)
+      }
      }
     }
    }
-   Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically) {
+   Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically) {
     Column(Modifier.weight(1f)) {
-     Text(if(category=="Для вас")"ОТКРОЙ ДЛЯ СЕБЯ" else category.uppercase(),fontSize=9.sp,color=Yellow,fontWeight=FontWeight.Bold,letterSpacing=1.8.sp)
-     Text("Персонажи",fontSize=23.sp,color=Color.White,fontWeight=FontWeight.ExtraBold,modifier=Modifier.padding(top=3.dp))
+     Text(if(category=="Для вас")"ПОДБОРКА NEBULA" else category.uppercase(),fontSize=8.sp,color=Yellow,fontWeight=FontWeight.Black,letterSpacing=1.8.sp)
+     Text("Персонажи",fontSize=23.sp,color=Color.White,fontWeight=FontWeight.Black,modifier=Modifier.padding(top=3.dp))
     }
-    Text("${shown.size} найдено",fontSize=11.sp,color=Muted)
+    Surface(color=Color(0xFF232338),shape=RoundedCornerShape(10.dp),border=BorderStroke(1.dp,Border)) {
+     Text("\${shown.size} НАЙДЕНО",fontSize=8.sp,color=Color(0xFFD1C5F7),fontWeight=FontWeight.Bold,letterSpacing=.7.sp,modifier=Modifier.padding(horizontal=9.dp,vertical=7.dp))
+    }
    }
    if(shown.isEmpty()) {
     Box(Modifier.fillMaxWidth().height(190.dp),contentAlignment=Alignment.Center) {
      Column(horizontalAlignment=Alignment.CenterHorizontally) {
       Icon(Icons.Outlined.SearchOff,null,tint=Muted,modifier=Modifier.size(34.dp))
       Text("Ничего не найдено",color=Color.White,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=10.dp))
-      Text("Измени запрос или выбери другую категорию",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))
+      Text("Измени запрос или выбери другую категорию",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=4.dp))
      }
     }
    } else {
@@ -446,48 +505,84 @@ private fun decodeChats(json:String):List<ChatSession> = try {
      }
     }
    }
-   Surface(color=Color(0xFF171A28),shape=RoundedCornerShape(21.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.fillMaxWidth().padding(horizontal=14.dp).padding(top=16.dp,bottom=22.dp).clickable{onCreate()}) {
-    Row(Modifier.padding(17.dp),verticalAlignment=Alignment.CenterVertically) {
-     Box(Modifier.size(44.dp).background(Brush.linearGradient(listOf(Color(0xFF8F78D5),Color(0xFF4C3B73))),RoundedCornerShape(15.dp)),contentAlignment=Alignment.Center){Icon(Icons.Outlined.Add,null,tint=Color.White,modifier=Modifier.size(23.dp))}
-     Spacer(Modifier.width(13.dp))
-     Column(Modifier.weight(1f)){Text("Твой персонаж — твои правила",fontWeight=FontWeight.Bold,fontSize=13.sp);Text("Собери характер с нуля",fontSize=11.sp,color=Muted,modifier=Modifier.padding(top=3.dp))}
-     Icon(Icons.Outlined.ArrowForward,null,tint=Purple)
+   Surface(color=Color(0xFF171A29),shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,Color(0xFF3A3550)),modifier=Modifier.fillMaxWidth().padding(horizontal=14.dp).padding(top=17.dp,bottom=22.dp)) {
+    Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
+     Box(Modifier.size(48.dp).background(Brush.linearGradient(listOf(Color(0xFF9079D3),Color(0xFF4C3B73))),RoundedCornerShape(16.dp)),contentAlignment=Alignment.Center){Icon(Icons.Outlined.AutoAwesome,null,tint=Color.White,modifier=Modifier.size(24.dp))}
+     Spacer(Modifier.width(12.dp))
+     Column(Modifier.weight(1f)) {
+      Text("ТВОЯ ЛИЧНАЯ ВСЕЛЕННАЯ",fontSize=8.sp,color=Yellow,fontWeight=FontWeight.Black,letterSpacing=1.sp)
+      Text("Твой персонаж — твои правила",fontWeight=FontWeight.ExtraBold,fontSize=12.sp,color=Color.White,modifier=Modifier.padding(top=3.dp))
+      Text("Собери образ, характер и собственную историю",fontSize=10.sp,color=Muted,modifier=Modifier.padding(top=3.dp))
+     }
+     IconButton(onClick=onCreate){Icon(Icons.Outlined.ArrowForward,null,tint=Purple)}
     }
    }
   }
  }
 }
+
+
 @Composable private fun PersonCard(p:Person,index:Int,modifier:Modifier=Modifier,onOpen:(Person)->Unit) {
- Surface(color=Card,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,Color(0xFF343149)),modifier=modifier.clickable{onOpen(p)}) {
-  Box(Modifier.fillMaxWidth().height(238.dp)) {
-   val image=rememberPortraitSheet()
-   val tileWidth=(image?.width?:2)/2
-   val tileHeight=(image?.height?:2)/2
-   Canvas(Modifier.fillMaxSize()) {
-    drawRect(Brush.linearGradient(personColors(index)))
-    if(index in 0..1 && image!=null) drawImage(image,srcOffset=IntOffset(index*tileWidth,0),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt()))
-    drawRect(Brush.verticalGradient(listOf(Color(0x0010121B),Color(0x3010121B),Color(0xF5080A12))))
-   }
-   if(index !in 0..1) {
-    Box(Modifier.align(Alignment.Center).size(76.dp).background(Color.White.copy(alpha=.075f),RoundedCornerShape(25.dp)).border(1.dp,Color.White.copy(alpha=.12f),RoundedCornerShape(25.dp)),contentAlignment=Alignment.Center) {
-     Text(p.initials.ifBlank{"✦"},fontSize=29.sp,fontWeight=FontWeight.Black,color=Color.White.copy(alpha=.92f))
+ val image=rememberPortraitSheet()
+ val tileWidth=(image?.width?:2)/2
+ val tileHeight=(image?.height?:2)/2
+ val shimmer=rememberInfiniteTransition(label="person-card-"+index)
+ val glow by shimmer.animateFloat(initialValue=.10f,targetValue=.24f,animationSpec=infiniteRepeatable(animation=tween(2100,delayMillis=index*120),repeatMode=RepeatMode.Reverse),label="person-card-glow")
+ Surface(color=Card,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,Color(0xFF403A58)),modifier=modifier.animateContentSize().clickable{onOpen(p)}) {
+  Column(Modifier.fillMaxWidth()) {
+   Box(Modifier.fillMaxWidth().height(206.dp).background(Brush.linearGradient(personColors(index)))) {
+    Canvas(Modifier.fillMaxSize()) {
+     drawRect(Brush.linearGradient(personColors(index)))
+     drawCircle(Color.White.copy(alpha=glow),radius=size.width*.33f,center=androidx.compose.ui.geometry.Offset(size.width*.82f,size.height*.16f))
+     drawCircle(Color(0x228F7DCE),radius=size.width*.22f,center=androidx.compose.ui.geometry.Offset(size.width*.13f,size.height*.8f))
+     if(index in 0..1 && image!=null) {
+      drawImage(image,srcOffset=IntOffset(index*tileWidth,0),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt()),alpha=.9f)
+     } else {
+      drawCircle(Color.White.copy(alpha=.11f),radius=size.width*.25f,center=androidx.compose.ui.geometry.Offset(size.width*.5f,size.height*.47f))
+      drawCircle(Color.White.copy(alpha=.09f),radius=size.width*.18f,center=androidx.compose.ui.geometry.Offset(size.width*.5f,size.height*.47f))
+     }
+     drawRect(Brush.verticalGradient(listOf(Color(0x0010121B),Color(0x5510121B),Color(0xDD080A12))))
+    }
+    if(index !in 0..1) {
+     Box(Modifier.align(Alignment.Center).size(74.dp).background(Color.White.copy(alpha=.075f),RoundedCornerShape(24.dp)).border(1.dp,Color.White.copy(alpha=.19f),RoundedCornerShape(24.dp)),contentAlignment=Alignment.Center) {
+      Text(p.initials.ifBlank{"✦"},fontSize=30.sp,fontWeight=FontWeight.Black,color=Color.White)
+     }
+    }
+    Row(Modifier.align(Alignment.TopStart).padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+     Surface(color=Color(0xD910121D),shape=RoundedCornerShape(9.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.15f))) {
+      Text(p.category.uppercase(),fontSize=8.sp,color=Color.White,fontWeight=FontWeight.Black,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=9.dp,vertical=6.dp))
+     }
+    }
+    Surface(color=Color(0xB70E101B),shape=CircleShape,border=BorderStroke(1.dp,Color.White.copy(alpha=.15f)),modifier=Modifier.align(Alignment.TopEnd).padding(10.dp).size(31.dp)) {
+     Box(contentAlignment=Alignment.Center){Icon(Icons.Outlined.AutoAwesome,null,tint=Color(0xFFD9C9FF),modifier=Modifier.size(15.dp))}
+    }
+    Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal=12.dp,vertical=12.dp)) {
+     Text(p.name,fontSize=16.sp,fontWeight=FontWeight.Black,color=Color.White,maxLines=1)
+     Text(p.creator.uppercase(),fontSize=8.sp,color=Color.White.copy(alpha=.62f),fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(top=3.dp))
     }
    }
-   Surface(color=Color(0xB90D101A),shape=RoundedCornerShape(9.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.13f)),modifier=Modifier.align(Alignment.TopStart).padding(10.dp)) {
-    Text(p.category.uppercase(),fontSize=8.sp,color=Color.White,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp,modifier=Modifier.padding(horizontal=9.dp,vertical=6.dp))
-   }
-   Box(Modifier.align(Alignment.TopEnd).padding(10.dp).size(30.dp).background(Color(0xAA11131E),CircleShape),contentAlignment=Alignment.Center){Icon(Icons.Outlined.BookmarkBorder,null,tint=Color.White,modifier=Modifier.size(15.dp))}
-   Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal=12.dp,vertical=13.dp)) {
-    Text(p.name,fontSize=16.sp,fontWeight=FontWeight.ExtraBold,color=Color.White,maxLines=1)
-    Text(p.bio.ifBlank{"Новая история начинается здесь."},color=Color.White.copy(alpha=.78f),fontSize=10.sp,lineHeight=14.sp,maxLines=2,modifier=Modifier.padding(top=4.dp))
+   Column(Modifier.fillMaxWidth().background(Color(0xFF171A28)).padding(horizontal=12.dp,vertical=11.dp)) {
+    Text(p.bio.ifBlank{"Новая история начинается здесь."},color=Color(0xFFC1C1D0),fontSize=10.sp,lineHeight=15.sp,maxLines=3,minLines=2)
     Row(Modifier.fillMaxWidth().padding(top=10.dp),verticalAlignment=Alignment.CenterVertically) {
-     Text("НАЧАТЬ ДИАЛОГ",fontSize=9.sp,color=Color(0xFFD9CCFF),fontWeight=FontWeight.ExtraBold,letterSpacing=.7.sp,modifier=Modifier.weight(1f))
-     Box(Modifier.size(27.dp).background(Color(0xFFBBA7FF),CircleShape),contentAlignment=Alignment.Center){Icon(Icons.Outlined.ArrowOutward,null,tint=Color(0xFF20182F),modifier=Modifier.size(15.dp))}
+     Row(verticalAlignment=Alignment.CenterVertically) {
+      Box(Modifier.size(5.dp).background(Color(0xFF8BDCB5),CircleShape))
+      Spacer(Modifier.width(5.dp))
+      Text("ГОТОВ К ДИАЛОГУ",fontSize=7.sp,color=Color(0xFFB7DCC9),fontWeight=FontWeight.Bold,letterSpacing=.55.sp)
+     }
+     Spacer(Modifier.weight(1f))
+     Surface(color=Color(0xFFBDAAFF),shape=RoundedCornerShape(10.dp)) {
+      Row(Modifier.padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
+       Text("ОТКРЫТЬ",fontSize=8.sp,fontWeight=FontWeight.Black,color=Color(0xFF241B35))
+       Spacer(Modifier.width(4.dp))
+       Icon(Icons.Outlined.ArrowOutward,null,tint=Color(0xFF241B35),modifier=Modifier.size(12.dp))
+      }
+     }
     }
    }
   }
  }
 }
+
 private fun personColors(index:Int):List<Color> = when(((index%4)+4)%4) {
  0 -> listOf(Color(0xFF40345F),Color(0xFF191C31))
  1 -> listOf(Color(0xFF31505A),Color(0xFF171D2E))
@@ -708,7 +803,7 @@ private fun personColors(index:Int):List<Color> = when(((index%4)+4)%4) {
      Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom) {
       if(!line.user) { PortraitAvatar(avatarIndex,31,person.initials); Spacer(Modifier.width(8.dp)) }
       Column(horizontalAlignment=if(line.user)Alignment.End else Alignment.Start) {
-       Text(if(line.user)"ТЫ" else person.name.uppercase(),fontSize=8.sp,fontWeight=FontWeight.Bold,color=if(line.user)Color(0xFFD4C5FF) else Muted,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=5.dp,bottom=4.dp))
+       Text(if(line.user)"ТЫ" else person.name.uppercase(),fontSize=8.sp,fontWeight=FontWeight.Bold,color=if(line.user)Color(0xFFD4C5FF) else Muted,letterSpacing=1.sp,modifier=Modifier.padding(start=5.dp,bottom=4.dp))
        Surface(color=if(line.user)Color(0xFF59477E) else Color(0xF01B1E2C),shape=RoundedCornerShape(topStart=if(line.user)19.dp else 7.dp,topEnd=if(line.user)7.dp else 19.dp,bottomStart=19.dp,bottomEnd=19.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.09f)),modifier=Modifier.widthIn(max=310.dp)) {
         RichMessageText(line.text,line.user)
        }
