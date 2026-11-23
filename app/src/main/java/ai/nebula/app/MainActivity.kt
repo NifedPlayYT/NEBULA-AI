@@ -97,7 +97,7 @@ private val people = listOf(
  val lines = remember { mutableStateListOf<Line>() }
  val sessions = remember { mutableStateListOf<ChatSession>().apply { addAll(decodeChats(chatsJson0)) } }
  var currentChatId by remember { mutableStateOf("") }
- val persistCurrentChat = { if(currentChatId.isNotBlank()){ val item=ChatSession(currentChatId,selected,lines.toList(),System.currentTimeMillis()); val index=sessions.indexOfFirst{it.id==currentChatId}; if(index>=0)sessions[index]=item else sessions.add(0,item); saveChats(encodeChats(sessions.toList())) } }
+ val persistCurrentChat = { if(currentChatId.isNotBlank()){ val item=ChatSession(currentChatId,selected,lines.takeLast(120),System.currentTimeMillis()); val index=sessions.indexOfFirst{it.id==currentChatId}; if(index>=0)sessions[index]=item else sessions.add(0,item); sessions.sortByDescending{it.updatedAt}; while(sessions.size>30)sessions.removeAt(sessions.lastIndex); saveChats(encodeChats(sessions.toList())) } }
  val scope = rememberCoroutineScope()
  val drawer = rememberDrawerState(DrawerValue.Closed)
 
@@ -450,9 +450,11 @@ private suspend fun askAiStream(base:String,model:String,key:String,character:St
    val data=line.removePrefix("data:").trim()
    if(data=="[DONE]")break
    try{
-    val delta=JSONObject(data).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")?.optString("content").orEmpty()
+    val event=JSONObject(data)
+    event.optJSONObject("error")?.let { throw IllegalStateException(it.optString("message","Провайдер вернул ошибку генерации.")) }
+    val delta=event.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")?.optString("content").orEmpty()
     if(delta.isNotEmpty())withContext(Dispatchers.Main){onChunk(delta)}
-   }catch(_:org.json.JSONException){}
+   }catch(e:org.json.JSONException){}
   }
  }
 }
