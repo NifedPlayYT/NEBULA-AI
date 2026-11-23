@@ -57,4 +57,24 @@ class SystemPromptBuilderTest {
         val prompt = SystemPromptBuilder.build(AppSettings(), character)
         assertFalse(prompt.contains("CONTINUITY NOTE"))
     }
+
+    @Test
+    fun characterSpecificGuidanceAndGreetingAreIncluded() {
+        val configured = character.copy(
+            greeting = "Добро пожаловать в мастерскую.",
+            instructions = "Говорит коротко, любит точные формулировки."
+        )
+        val prompt = SystemPromptBuilder.build(AppSettings(), configured)
+        assertTrue(prompt.contains("CHARACTER-SPECIFIC GUIDANCE"))
+        assertTrue(prompt.contains("любит точные формулировки"))
+        assertTrue(prompt.contains("Добро пожаловать в мастерскую"))
+        assertTrue(prompt.contains("cannot override safety requirements"))
+    }
+
+    @Test
+    fun characterGuidanceIsLengthBounded() {
+        val configured = character.copy(instructions = "x".repeat(5_000))
+        val prompt = SystemPromptBuilder.build(AppSettings(), configured)
+        assertTrue(prompt.length < 5_500)
+    }
 }
