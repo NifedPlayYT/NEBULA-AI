@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -132,7 +133,7 @@ private val people = listOf(
  }
  val scope = rememberCoroutineScope()
  val openPerson: (Person)->Unit = { person ->
-  chatReturnPage=page
+  chatReturnPage=if(page=="create") "home" else page
   selected=person
   lines.clear()
   error=""
@@ -296,9 +297,9 @@ private fun decodeChats(json:String):List<ChatSession> = try {
     Text("Модель",fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=Color(0xFFE8E6F2),modifier=Modifier.padding(top=14.dp))
     Spacer(Modifier.height(7.dp))
     FieldInput(model,onModel,"Название модели")
-    Row(Modifier.fillMaxWidth().padding(top=4.dp),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-     AssistChip(onClick={onModel("deepseek/deepseek-v4.1-flash-free")},label={Text("DeepSeek Free",fontSize=11.sp)},colors=AssistChipDefaults.assistChipColors(containerColor=Field, labelColor=Color.White),border=BorderStroke(1.dp,Border))
-     AssistChip(onClick={onModel("orcarouter/free")},label={Text("OrcaRouter Free",fontSize=11.sp)},colors=AssistChipDefaults.assistChipColors(containerColor=Field, labelColor=Color.White),border=BorderStroke(1.dp,Border))
+    Row(Modifier.fillMaxWidth().padding(top=6.dp),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+     Surface(color=Field,shape=RoundedCornerShape(30.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.clickable{onModel("deepseek/deepseek-v4.1-flash-free")}) { Text("DeepSeek Free",fontSize=10.sp,color=Color.White,modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)) }
+     Surface(color=Field,shape=RoundedCornerShape(30.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.clickable{onModel("orcarouter/free")}) { Text("OrcaRouter Free",fontSize=10.sp,color=Color.White,modifier=Modifier.padding(horizontal=12.dp,vertical=8.dp)) }
     }
     var revealKey by remember { mutableStateOf(false) }
     Text("API-ключ",fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=Color(0xFFE8E6F2),modifier=Modifier.padding(top=14.dp,bottom=7.dp))
@@ -672,7 +673,7 @@ private fun personColors(index:Int):List<Color> = when(((index%4)+4)%4) {
  Box(Modifier.size(size.dp).clip(RoundedCornerShape((size/3).dp)).background(Brush.linearGradient(personColors(index)))) {
   if(index in 0..1 && image!=null) {
    Canvas(Modifier.fillMaxSize()) {
-    drawImage(image,srcOffset=IntOffset(index*tileWidth,0),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt()))
+    drawImage(image,srcOffset=IntOffset(index*tileWidth,0),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(this.size.width.toInt(),this.size.height.toInt()))
    }
   } else {
    Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {
