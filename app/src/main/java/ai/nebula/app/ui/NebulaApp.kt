@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Forum
@@ -72,6 +73,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ai.nebula.app.data.AppPage
@@ -111,6 +114,7 @@ fun NebulaApp(repository: NebulaRepository) {
     var generationJob by remember { mutableStateOf<Job?>(null) }
     var chatError by remember { mutableStateOf("") }
     var search by remember { mutableStateOf("") }
+    var chatSearch by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Все") }
     var newName by remember { mutableStateOf("") }
     var newBio by remember { mutableStateOf("") }
@@ -214,7 +218,7 @@ fun NebulaApp(repository: NebulaRepository) {
                     ::openCharacter, { page = AppPage.CREATE }
                 )
                 AppPage.CHATS -> ChatsScreen(
-                    sessions, ::openSession,
+                    sessions, chatSearch, { chatSearch = it }, ::openSession,
                     { id -> sessions = sessions.filterNot { it.id == id }; repository.saveSessions(sessions) },
                     { page = AppPage.DISCOVER }
                 )
@@ -382,19 +386,26 @@ private fun CharacterCard(character: Character, modifier: Modifier = Modifier, o
 
 @Composable
 private fun ChatsScreen(
-    sessions: List<ChatSession>, onOpen: (ChatSession) -> Unit,
-    onDelete: (String) -> Unit, onDiscover: () -> Unit
+    sessions: List<ChatSession>, search: String, onSearch: (String) -> Unit,
+    onOpen: (ChatSession) -> Unit, onDelete: (String) -> Unit, onDiscover: () -> Unit
 ) {
+    val filteredSessions = sessions.filter { session ->
+        session.character.name.contains(search, ignoreCase = true) ||
+            session.messages.lastOrNull()?.text.orEmpty().contains(search, ignoreCase = true)
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
         ScreenHeading("Твои чаты", "ИСТОРИЯ ДИАЛОГОВ")
+        SearchField(search, onSearch, placeholder = "Поиск по персонажу или сообщениям…")
         if (sessions.isEmpty()) {
             EmptyState("Пока нет диалогов", "Открой персонажа в каталоге, чтобы начать первый разговор.")
             Button(onClick = onDiscover, modifier = Modifier.fillMaxWidth().padding(top = 14.dp), shape = RoundedCornerShape(15.dp)) {
                 Text("Открыть каталог")
             }
+        } else if (filteredSessions.isEmpty()) {
+            EmptyState("Ничего не найдено", "Попробуй изменить поисковый запрос.")
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(sessions, key = { it.id }) { session ->
+                items(filteredSessions, key = { it.id }) { session ->
                     Surface(color = Panel, shape = RoundedCornerShape(19.dp), border = BorderStroke(1.dp, Hairline), modifier = Modifier.fillMaxWidth().clickable { onOpen(session) }) {
                         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                             CharacterAvatar(session.character, 48)
@@ -604,6 +615,7 @@ private fun ConversationScreen(
 
 @Composable
 private fun MessageBubble(character: Character, message: ChatMessage) {
+    val clipboardManager = LocalClipboardManager.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start, verticalAlignment = Alignment.Bottom) {
         if (!message.isUser) {
             CharacterAvatar(character, 29)
@@ -616,6 +628,12 @@ private fun MessageBubble(character: Character, message: ChatMessage) {
             modifier = Modifier.widthIn(max = 310.dp)
         ) {
             Text(message.text, color = Color.White, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp))
+        }
+        IconButton(
+            onClick = { clipboardManager.setText(AnnotatedString(message.text)) },
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(Icons.Outlined.ContentCopy, "Копировать сообщение", tint = MutedText, modifier = Modifier.size(14.dp))
         }
     }
 }
@@ -666,13 +684,16 @@ private fun DockItem(
 }
 
 @Composable
-private fun SearchField(value: String, onValue: (String) -> Unit) {
+private fun SearchField(
+    value: String, onValue: (String) -> Unit,
+    placeholder: String = "Поиск персонажа…"
+) {
     Surface(color = Panel, shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, Hairline)) {
         BasicTextField(
             value = value, onValueChange = onValue,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
             singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 12.sp),
-            decorationBox = { inner -> if (value.isEmpty()) Text("Поиск персонажа…", color = MutedText, fontSize = 12.sp); inner() }
+            decorationBox = { inner -> if (value.isEmpty()) Text(placeholder, color = MutedText, fontSize = 12.sp); inner() }
         )
     }
 }
