@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
-    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!, p.getBoolean("clean_mode",true), p.getString("chats","[]")!!, { b,m,k,clean -> p.edit().putString("base",b).putString("model",m).putString("key",k).putBoolean("clean_mode",clean).apply() }, { json -> p.edit().putString("chats",json).apply() })
+    Nebula(p.getString("base","https://api.orcarouter.ai/v1")!!, p.getString("model","deepseek/deepseek-v4.1-flash-free")!!, p.getString("key","")!!, p.getBoolean("clean_mode",true), p.getString("chats","[]")!!, p.getString("custom_people","[]")!!, { b,m,k,clean -> p.edit().putString("base",b).putString("model",m).putString("key",k).putBoolean("clean_mode",clean).apply() }, { json -> p.edit().putString("chats",json).apply() }, { json -> p.edit().putString("custom_people",json).apply() })
    }
   }
  }
@@ -76,9 +76,11 @@ private val people = listOf(
  Person("Мира","@nebula","Загадочная собеседница со своей историей.","Фэнтези","М")
 )
 
-@Composable private fun Nebula(base0:String, model0:String, key0:String, clean0:Boolean, chatsJson0:String, save:(String,String,String,Boolean)->Unit, saveChats:(String)->Unit) {
+@Composable private fun Nebula(base0:String, model0:String, key0:String, clean0:Boolean, chatsJson0:String, customPeopleJson0:String, save:(String,String,String,Boolean)->Unit, saveChats:(String)->Unit, savePeople:(String)->Unit) {
  var page by remember { mutableStateOf("home") }
  var selected by remember { mutableStateOf(people[0]) }
+ val customPeople = remember { mutableStateListOf<Person>().apply { addAll(decodePeople(customPeopleJson0)) } }
+ val allPeople = people + customPeople
  var category by remember { mutableStateOf("Все") }
  var search by remember { mutableStateOf("") }
  var base by remember { mutableStateOf(base0) }
@@ -134,7 +136,7 @@ private val people = listOf(
       (fadeOut(tween(130)) + slideOutHorizontally(tween(170)){-it/16})
     }
    ) { currentPage -> when(currentPage) {
-    "home" -> Home(category,{category=it},search,{search=it}) { person ->
+    "home" -> Home(allPeople,category,{category=it},search,{search=it}) { person ->
      selected=person; lines.clear(); error=""; currentChatId=System.currentTimeMillis().toString()
      lines.add(Line(false,"Привет. Я ${person.name}. О чём поговорим?")); persistCurrentChat(); page="chat"
     }
@@ -146,12 +148,12 @@ private val people = listOf(
      Spacer(Modifier.height(15.dp)); Text("ХАРАКТЕР И ОПИСАНИЕ",fontSize=11.sp,color=Muted)
      FieldInput(bio,{bio=it},"Опиши личность и манеру общения",true)
      Spacer(Modifier.height(22.dp))
-     Button(onClick={selected=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");lines.clear();currentChatId=System.currentTimeMillis().toString();lines.add(Line(false,"Привет! Я ${selected.name}."));persistCurrentChat();page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
+     Button(onClick={val created=Person(name.ifBlank{"Новый персонаж"},"@you",bio,"ОС","✦");customPeople.add(created);savePeople(encodePeople(customPeople.toList()));selected=created;lines.clear();currentChatId=System.currentTimeMillis().toString();lines.add(Line(false,"Привет! Я ${selected.name}."));persistCurrentChat();name="";bio="";page="chat"},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(13.dp)){Text("Создать персонажа")}
     }
     "settings" -> SettingsScreen(base,{base=it},model,{model=it},apiKey,{apiKey=it},cleanModeState,{cleanModeState=it},{save(base,model,apiKey,cleanModeState);page="home"},{page="home"})
     "profile" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) { Text("ПРОФИЛЬ",fontSize=24.sp,fontWeight=FontWeight.Black); Spacer(Modifier.height(18.dp)); Surface(color=Card,shape=RoundedCornerShape(22.dp),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){BrandMark(72);Text("ТВОЯ ВСЕЛЕННАЯ",fontWeight=FontWeight.Bold);Text("Создавай персонажей и истории.",color=Muted,fontSize=12.sp)}};Spacer(Modifier.height(16.dp));Button(onClick={page="create"},modifier=Modifier.fillMaxWidth()){Text("Создать персонажа")} }
     "chat" -> Column(Modifier.fillMaxSize()) {
-     val avatarIndex=people.indexOfFirst{it.name==selected.name}.coerceAtLeast(0)
+     val avatarIndex=allPeople.indexOfFirst{it.name==selected.name}.coerceAtLeast(0)
      val chatListState=rememberLazyListState()
      LaunchedEffect(lines.size,lines.lastOrNull()?.text,busy,error) {
       if(lines.isNotEmpty()) chatListState.animateScrollToItem(lines.lastIndex)
@@ -200,6 +202,15 @@ private val people = listOf(
  
 
 }
+
+private fun encodePeople(items:List<Person>):String = JSONArray().apply {
+ items.forEach { put(JSONObject().put("name",it.name).put("creator",it.creator).put("bio",it.bio).put("category",it.category).put("initials",it.initials)) }
+}.toString()
+
+private fun decodePeople(json:String):List<Person> = try {
+ val array=JSONArray(json)
+ (0 until array.length()).mapNotNull { i -> array.optJSONObject(i)?.let { Person(it.optString("name","Новый персонаж"),it.optString("creator","@you"),it.optString("bio",""),it.optString("category","ОС"),it.optString("initials","✦")) } }
+} catch (_:Exception) { emptyList() }
 
 private fun encodeChats(chats:List<ChatSession>):String = JSONArray().apply {
  chats.forEach { chat ->
@@ -271,9 +282,9 @@ private fun decodeChats(json:String):List<ChatSession> = try {
 @Composable private fun NavItem(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
  Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=20.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Muted);Spacer(Modifier.width(18.dp));Text(label,fontSize=16.sp)}
 }
-@Composable private fun Home(category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onOpen:(Person)->Unit){
+@Composable private fun Home(peopleList:List<Person>,category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onOpen:(Person)->Unit){
  val categories=listOf("Все","Аниме","Игры","ОС","Фэнтези","Реализм")
- val shown=people.filter{(category=="Все"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
+ val shown=peopleList.filter{(category=="Все"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom=24.dp)){
   Spacer(Modifier.height(22.dp))
   Column(Modifier.fillMaxWidth().padding(horizontal=22.dp).background(Brush.linearGradient(listOf(Color(0xFF342957),Color(0xFF1D1D30),Bg)),RoundedCornerShape(22.dp)).padding(18.dp)){
