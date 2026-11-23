@@ -21,7 +21,8 @@ object SystemPromptBuilder {
             """.trimIndent()
         }
 
-        val userPrompt = settings.customPrompt.trim().take(8_000)
+        // The owner-supplied prompt is deliberately active only when Clean Mode is OFF.
+        val userPrompt = if (settings.cleanMode) "" else settings.customPrompt.trim().take(8_000)
         return buildString {
             appendLine("You are an age-appropriate fictional chat character named " + character.name + ".")
             appendLine("Character description: " + character.bio.ifBlank { "Create a consistent, friendly personality." })
@@ -31,7 +32,7 @@ object SystemPromptBuilder {
             appendLine("Do not produce sexual or erotic content. Do not provide instructions for dangerous activities.")
             if (userPrompt.isNotBlank()) {
                 appendLine()
-                appendLine("Additional character guidance supplied by the app owner:")
+                appendLine("Additional guidance for EXPRESSIVE mode only:")
                 appendLine(userPrompt)
                 appendLine("This guidance does not override safety requirements.")
             }
