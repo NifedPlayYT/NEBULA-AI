@@ -77,7 +77,9 @@ private val Border = Color(0xFF303047)
 class MainActivity : ComponentActivity() {
  override fun onCreate(savedInstanceState: Bundle?) {
   super.onCreate(savedInstanceState)
-  window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+  window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+  window.statusBarColor = android.graphics.Color.rgb(16, 16, 24)
+  window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
@@ -129,6 +131,7 @@ private val people = listOf(
   }
    AnimatedContent(
     targetState=page,
+    modifier=Modifier.weight(1f),
     label="nebula-page-transition",
     transitionSpec={
      (fadeIn(tween(190)) + slideInHorizontally(tween(220)){it/12}) togetherWith
@@ -178,7 +181,7 @@ private val people = listOf(
      val avatarIndex=allPeople.indexOfFirst{it.name==selected.name}.coerceAtLeast(0)
      val chatListState=rememberLazyListState()
      val backdrop=rememberPortraitSheet()
-     val tileW=(backdrop?.width ?: 2)/2; val tileH=(backdrop?.height ?: 2)/2; val tile=(avatarIndex%4)
+     val tileW=(backdrop?.width ?: 2)/2; val tileH=(backdrop?.height ?: 2)/2; val tile=(avatarIndex%2)
      LaunchedEffect(lines.size,lines.lastOrNull()?.text,busy,error) {
       if(lines.isNotEmpty()) chatListState.animateScrollToItem(lines.lastIndex)
      }
@@ -224,7 +227,7 @@ private val people = listOf(
         if(busy)item { Row(verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,30);Spacer(Modifier.width(8.dp));TypingIndicator()} }
         if(error.isNotBlank())item { Text(error,color=Color(0xFFFFAAAA),fontSize=12.sp,modifier=Modifier.padding(start=42.dp)) }
        }
-       Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal=13.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
+       Row(Modifier.fillMaxWidth().padding(horizontal=13.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
         Surface(color=Color(0xE62A2929),shape=RoundedCornerShape(30.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.14f)),modifier=Modifier.weight(1f)) {
          Row(Modifier.padding(start=14.dp,end=7.dp,top=7.dp,bottom=7.dp),verticalAlignment=Alignment.CenterVertically) {
           Icon(Icons.Outlined.AutoAwesome,null,tint=Color.White.copy(alpha=.8f),modifier=Modifier.size(21.dp))
@@ -432,7 +435,7 @@ private fun decodeChats(json:String):List<ChatSession> = try {
  Surface(color=Card,shape=RoundedCornerShape(22.dp),border=BorderStroke(1.dp,Color(0xFF292936)),modifier=modifier.clickable{onOpen(p)}) {
   Box(Modifier.fillMaxWidth().height(238.dp)) {
    val image=rememberPortraitSheet()
-   val tileWidth=(image?.width ?: 2)/2; val tileHeight=(image?.height ?: 2)/2; val tile=((index%4)+4)%4
+   val tileWidth=(image?.width ?: 2)/2; val tileHeight=(image?.height ?: 2)/2; val tile=((index%2)+2)%2
    Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
     if(image != null) drawImage(image,srcOffset=IntOffset((tile%2)*tileWidth,(tile/2)*tileHeight),srcSize=IntSize(tileWidth,tileHeight),dstSize=IntSize(size.width.toInt(),size.height.toInt())) else drawRect(Color(0xFF302744))
     drawRect(Brush.verticalGradient(0f to Color.Transparent,0.42f to Color(0x22000000),1f to Color(0xE8000000)))
@@ -458,7 +461,7 @@ private fun decodeChats(json:String):List<ChatSession> = try {
  val image = rememberPortraitSheet()
  val tileWidth = (image?.width ?: 2) / 2
  val tileHeight = (image?.height ?: 2) / 2
- val tile = ((index % 4) + 4) % 4
+ val tile = ((index % 2) + 2) % 2
  Canvas(Modifier.size(size.dp).clip(RoundedCornerShape(16.dp))) {
   if(image != null) drawImage(
    image = image,
