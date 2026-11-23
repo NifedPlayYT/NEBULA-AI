@@ -4,12 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
@@ -154,11 +160,13 @@ private val people = listOf(
       Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.AutoAwesome,null,tint=Purple,modifier=Modifier.padding(10.dp).size(19.dp))}
      }
      LazyColumn(state=chatListState,modifier=Modifier.weight(1f).fillMaxWidth().padding(horizontal=12.dp),contentPadding=PaddingValues(vertical=18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-      items(lines){line->Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom){
-       if(!line.user){PortraitAvatar(avatarIndex,29);Spacer(Modifier.width(7.dp))}
-       Surface(color=if(line.user)Color(0xFF7657D6) else Color(0xFF20202E),shape=RoundedCornerShape(topStart=if(line.user)18.dp else 6.dp,topEnd=if(line.user)6.dp else 18.dp,bottomStart=18.dp,bottomEnd=18.dp),border=if(line.user)null else BorderStroke(1.dp,Border),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
+      items(lines){line->AnimatedVisibility(visible=true,enter=fadeIn(tween(180))+slideInVertically(tween(220)){it/6}) {
+       Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom){
+        if(!line.user){PortraitAvatar(avatarIndex,29);Spacer(Modifier.width(7.dp))}
+        Surface(color=if(line.user)Color(0xFF7657D6) else Color(0xFF20202E),shape=RoundedCornerShape(topStart=if(line.user)18.dp else 6.dp,topEnd=if(line.user)6.dp else 18.dp,bottomStart=18.dp,bottomEnd=18.dp),border=if(line.user)null else BorderStroke(1.dp,Border),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
+       }
       }}
-      if(busy)item{Row(verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,26);Spacer(Modifier.width(8.dp));Surface(color=Card,shape=RoundedCornerShape(14.dp)){Text("Печатает…",color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=13.dp,vertical=9.dp))}}}
+      if(busy)item{Row(verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,26);Spacer(Modifier.width(8.dp));TypingIndicator()}}
       if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp,modifier=Modifier.padding(start=36.dp))}
      }
      Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=11.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -195,6 +203,17 @@ private val people = listOf(
   Spacer(Modifier.height(22.dp));Button(onClick=onSave,modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(15.dp)){Text("Сохранить настройки",fontWeight=FontWeight.Bold)};Spacer(Modifier.height(18.dp))
  }
 }
+@Composable private fun TypingIndicator(){
+ val transition=rememberInfiniteTransition(label="typing-dots")
+ Row(Modifier.background(Card,RoundedCornerShape(14.dp)).padding(horizontal=13.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
+  repeat(3){index->
+   val alpha by transition.animateFloat(initialValue=0.28f,targetValue=1f,animationSpec=infiniteRepeatable(animation=tween(520,delayMillis=index*150),repeatMode=RepeatMode.Reverse),label="typing-dot-$index")
+   Box(Modifier.size(6.dp).background(Purple.copy(alpha=alpha),CircleShape))
+  }
+  Spacer(Modifier.width(3.dp));Text("печатает",color=Muted,fontSize=12.sp)
+ }
+}
+
 @Composable private fun RichMessageText(text:String,user:Boolean){
  val styled=remember(text,user){
   buildAnnotatedString {
