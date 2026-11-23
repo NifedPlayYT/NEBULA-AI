@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "global-redesign-v0.2" ]
+    branches: [ "main", "global-redesign-v0.2", "global-redesign-v0.3" ]
 
 permissions:
   contents: write
