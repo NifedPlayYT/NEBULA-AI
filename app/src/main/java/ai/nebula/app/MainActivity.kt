@@ -1,6 +1,7 @@
 package ai.nebula.app
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -61,6 +62,7 @@ private val Border = Color(0xFF303047)
 class MainActivity : ComponentActivity() {
  override fun onCreate(savedInstanceState: Bundle?) {
   super.onCreate(savedInstanceState)
+  window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
   val p = getSharedPreferences("nebula", MODE_PRIVATE)
   setContent {
    MaterialTheme(colorScheme = darkColorScheme(background=Bg, surface=Card, primary=Purple, secondary=Yellow, onBackground=Color.White, onSurface=Color.White)) {
@@ -100,37 +102,16 @@ private val people = listOf(
  var currentChatId by remember { mutableStateOf("") }
  val persistCurrentChat = { if(currentChatId.isNotBlank()){ val item=ChatSession(currentChatId,selected,lines.takeLast(120),System.currentTimeMillis()); val index=sessions.indexOfFirst{it.id==currentChatId}; if(index>=0)sessions[index]=item else sessions.add(0,item); sessions.sortByDescending{it.updatedAt}; while(sessions.size>30)sessions.removeAt(sessions.lastIndex); saveChats(encodeChats(sessions.toList())) } }
  val scope = rememberCoroutineScope()
- val drawer = rememberDrawerState(DrawerValue.Closed)
-
- ModalNavigationDrawer(drawerState=drawer, drawerContent={
-  ModalDrawerSheet(drawerContainerColor=Card) {
-   Spacer(Modifier.height(20.dp))
-   Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=20.dp)){BrandMark(38);Spacer(Modifier.width(10.dp));Text("NEBULA",fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=1.5.sp)}
-   Text("ТВОЯ ВСЕЛЕННАЯ ИСТОРИЙ",fontSize=10.sp,color=Muted,letterSpacing=1.5.sp,modifier=Modifier.padding(horizontal=22.dp))
-   Spacer(Modifier.height(26.dp))
-   Text("СОЗДАТЬ",fontSize=11.sp,color=Muted,modifier=Modifier.padding(horizontal=22.dp,vertical=8.dp))
-   NavItem("Новый персонаж",Icons.Outlined.AddCircle){page="create";scope.launch{drawer.close()}}
-   Spacer(Modifier.height(16.dp))
-   Text("ОБЗОР",fontSize=11.sp,color=Muted,modifier=Modifier.padding(horizontal=22.dp,vertical=8.dp))
-   NavItem("Главная",Icons.Outlined.Home){page="home";scope.launch{drawer.close()}}
-   NavItem("Каталог",Icons.Outlined.GridView){page="home";scope.launch{drawer.close()}}
-   NavItem("Мои чаты",Icons.Outlined.Forum){page="chats";scope.launch{drawer.close()}}
-   NavItem("Профиль",Icons.Outlined.Person){page="profile";scope.launch{drawer.close()}}
-   Spacer(Modifier.weight(1f))
-   NavItem("Настройки AI",Icons.Outlined.Settings){page="settings";scope.launch{drawer.close()}}
-   Text("Сообщения в NEBULA бесплатны. Тарифы API зависят от провайдера.",fontSize=11.sp,color=Muted,modifier=Modifier.padding(20.dp))
-  }
- }) {
-  Column(Modifier.fillMaxSize().background(Bg)) {
-   Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=12.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
-    IconButton(onClick={scope.launch{drawer.open()}}){Icon(Icons.Outlined.Menu,"Меню",tint=Muted)}
-    BrandMark(34); Spacer(Modifier.width(9.dp)); Text("NEBULA",fontSize=22.sp,fontWeight=FontWeight.Black,letterSpacing=1.3.sp,modifier=Modifier.weight(1f))
-    Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.Bolt,null,tint=Yellow,modifier=Modifier.padding(10.dp).size(22.dp))}
-    Spacer(Modifier.width(9.dp))
-    Surface(color=Purple,shape=RoundedCornerShape(12.dp),modifier=Modifier.clickable{page="settings"}) {
-     Text("API ⚙",fontSize=13.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(horizontal=14.dp,vertical=11.dp))
-    }
+ Column(Modifier.fillMaxSize().background(Bg)) {
+  Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=18.dp,vertical=11.dp),verticalAlignment=Alignment.CenterVertically) {
+   BrandMark(34)
+   Spacer(Modifier.width(10.dp))
+   Column(Modifier.weight(1f)) {
+    Text("NEBULA",fontSize=21.sp,fontWeight=FontWeight.Black,letterSpacing=1.6.sp)
+    Text("ТВОЯ ВСЕЛЕННАЯ ИСТОРИЙ",fontSize=9.sp,color=Muted,letterSpacing=1.2.sp)
    }
+   IconButton(onClick={page="settings"}) { Icon(Icons.Outlined.Settings,null,tint=Muted) }
+  }
    AnimatedContent(
     targetState=page,
     label="nebula-page-transition",
@@ -226,10 +207,35 @@ private val people = listOf(
      else -> Column(Modifier.padding(22.dp)){Text("Страница не найдена",color=Muted)}
    }
    }
+   if(page != "chat") BottomTabBar(
+    current = when(page) { "chats" -> "chats"; "profile", "settings", "create" -> "profile"; else -> "home" },
+    onSelect = { page = it }
+   )
+  }
+
+}
+
+@Composable private fun BottomTabBar(current:String,onSelect:(String)->Unit) {
+ Surface(color=Color(0xFF171722),tonalElevation=8.dp,shadowElevation=12.dp) {
+  Column {
+   Divider(color=Color(0xFF2A2939),thickness=0.7.dp)
+   Row(Modifier.fillMaxWidth().navigationBarsPadding().height(62.dp).padding(horizontal=9.dp),verticalAlignment=Alignment.CenterVertically) {
+    BottomTab("chats","Чаты",Icons.Outlined.Forum,current=="chats",Modifier.weight(1f)){onSelect("chats")}
+    BottomTab("home","Каталог",Icons.Outlined.GridView,current=="home",Modifier.weight(1f)){onSelect("home")}
+    BottomTab("profile","Профиль",Icons.Outlined.Person,current=="profile",Modifier.weight(1f)){onSelect("profile")}
+   }
   }
  }
- 
-
+}
+@Composable private fun BottomTab(key:String,label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,selected:Boolean,modifier:Modifier=Modifier,onClick:()->Unit) {
+ Column(modifier=modifier.fillMaxHeight().clickable{onClick()}.padding(vertical=7.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+  Box(contentAlignment=Alignment.Center) {
+   if(selected) Box(Modifier.size(width=54.dp,height=29.dp).background(Color(0xFF352A52),RoundedCornerShape(15.dp)))
+   Icon(icon,contentDescription=label,tint=if(selected)Color(0xFFC7B4FF) else Muted,modifier=Modifier.size(22.dp))
+  }
+  Spacer(Modifier.height(3.dp))
+  Text(label,fontSize=10.sp,fontWeight=if(selected)FontWeight.Bold else FontWeight.Medium,color=if(selected)Color(0xFFC7B4FF) else Muted)
+ }
 }
 
 private fun encodePeople(items:List<Person>):String = JSONArray().apply {
