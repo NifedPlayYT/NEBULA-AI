@@ -37,6 +37,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.*
@@ -267,7 +269,9 @@ private fun decodeChats(json:String):List<ChatSession> = try {
   Text("Адрес API",fontSize=12.sp,color=Muted);FieldInput(base,onBase,"https://api.orcarouter.ai/v1")
   Spacer(Modifier.height(12.dp));Text("Модель",fontSize=12.sp,color=Muted);FieldInput(model,onModel,"Название модели")
   Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){TextButton(onClick={onModel("deepseek/deepseek-v4.1-flash-free")}){Text("DeepSeek Free",fontSize=11.sp)};TextButton(onClick={onModel("orcarouter/free")}){Text("OrcaRouter Free",fontSize=11.sp)}}
-  Text("API-ключ",fontSize=12.sp,color=Muted);FieldInput(key,onKey,"API-ключ провайдера")
+  var revealKey by remember { mutableStateOf(false) }
+  Text("API-ключ",fontSize=12.sp,color=Muted)
+  OutlinedTextField(value=key,onValueChange=onKey,placeholder={Text("API-ключ провайдера",color=Muted)},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=if(revealKey) VisualTransformation.None else PasswordVisualTransformation(),trailingIcon={IconButton(onClick={revealKey=!revealKey}){Icon(if(revealKey) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,if(revealKey) "Скрыть ключ" else "Показать ключ",tint=Muted)}},colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Purple,unfocusedBorderColor=Color(0xFF555555),focusedTextColor=Color.White,unfocusedTextColor=Color.White))
   Surface(color=Field,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().padding(top=14.dp)){Text("Не публикуй APK с личным API-ключом. Запросы могут тарифицироваться провайдером.",fontSize=11.sp,color=Muted,modifier=Modifier.padding(14.dp))}
   Spacer(Modifier.height(22.dp));Button(onClick=onSave,modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(15.dp)){Text("Сохранить настройки",fontWeight=FontWeight.Bold)};Spacer(Modifier.height(18.dp))
  }
