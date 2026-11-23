@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
@@ -81,6 +82,7 @@ import ai.nebula.app.data.ChatSession
 import ai.nebula.app.data.NebulaRepository
 import ai.nebula.app.data.ai.ChatCompletionClient
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 private val Ink = Color(0xFF090B12)
@@ -106,6 +108,7 @@ fun NebulaApp(repository: NebulaRepository) {
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var messageInput by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
+    var generationJob by remember { mutableStateOf<Job?>(null) }
     var chatError by remember { mutableStateOf("") }
     var search by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Все") }
@@ -157,7 +160,7 @@ fun NebulaApp(repository: NebulaRepository) {
         chatError = ""
         sending = true
         saveCurrentChat()
-        scope.launch {
+        generationJob = scope.launch {
             try {
                 ai.stream(settings, character, history) { chunk ->
                     val lastIndex = messages.lastIndex
@@ -179,10 +182,19 @@ fun NebulaApp(repository: NebulaRepository) {
                     messages = messages.dropLast(1)
                 }
             } finally {
+                if (messages.lastOrNull()?.let { !it.isUser && it.text.isBlank() } == true) {
+                    messages = messages.dropLast(1)
+                }
+                generationJob = null
                 sending = false
                 saveCurrentChat()
             }
         }
+    }
+
+    fun stopGeneration() {
+        chatError = "Генерация остановлена."
+        generationJob?.cancel()
     }
 
     Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101321), Ink, Ink)))) {
@@ -236,7 +248,7 @@ fun NebulaApp(repository: NebulaRepository) {
                         character, messages, messageInput, { messageInput = it },
                         sending, chatError, { page = chatReturnPage },
                         { settingsReturnPage = AppPage.CHAT; page = AppPage.SETTINGS },
-                        ::sendMessage
+                        ::sendMessage, ::stopGeneration
                     )
                 }
             }
@@ -516,7 +528,8 @@ private fun SettingsScreen(settings: AppSettings, onSettingsChange: (AppSettings
 @Composable
 private fun ConversationScreen(
     character: Character, messages: List<ChatMessage>, input: String, onInput: (String) -> Unit,
-    sending: Boolean, error: String, onBack: () -> Unit, onSettings: () -> Unit, onSend: (String) -> Unit
+    sending: Boolean, error: String, onBack: () -> Unit, onSettings: () -> Unit,
+    onSend: (String) -> Unit, onStop: () -> Unit
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(messages.size, sending) {
@@ -558,9 +571,17 @@ private fun ConversationScreen(
                     keyboardOptions = KeyboardOptions.Default,
                     decorationBox = { inner -> if (input.isEmpty()) Text("Написать сообщение…", color = MutedText, fontSize = 13.sp); inner() }
                 )
-                IconButton(enabled = input.isNotBlank() && !sending, onClick = { onSend(input) },
-                    modifier = Modifier.size(43.dp).clip(CircleShape).background(if (input.isNotBlank() && !sending) Violet else PanelLift)) {
-                    Icon(Icons.Outlined.Send, "Отправить", tint = if (input.isNotBlank() && !sending) Color(0xFF211A32) else MutedText)
+                IconButton(
+                    enabled = sending || input.isNotBlank(),
+                    onClick = { if (sending) onStop() else onSend(input) },
+                    modifier = Modifier.size(43.dp).clip(CircleShape)
+                        .background(if (sending) Color(0xFF6A3947) else if (input.isNotBlank()) Violet else PanelLift)
+                ) {
+                    if (sending) {
+                        Icon(Icons.Outlined.StopCircle, "Остановить генерацию", tint = Color.White)
+                    } else {
+                        Icon(Icons.Outlined.Send, "Отправить", tint = if (input.isNotBlank()) Color(0xFF211A32) else MutedText)
+                    }
                 }
             }
         }
