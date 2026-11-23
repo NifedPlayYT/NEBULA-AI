@@ -206,7 +206,7 @@ private val people = listOf(
         items(lines){line->AnimatedVisibility(visible=true,enter=fadeIn(tween(190))+slideInVertically(tween(220)){it/8}) {
          Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom) {
           if(!line.user){PortraitAvatar(avatarIndex,34);Spacer(Modifier.width(8.dp))}
-          Surface(color=if(line.user)Color(0xE66F55B9) else Color(0xE62B2A29),shape=RoundedCornerShape(topStart=if(line.user)20.dp else 7.dp,topEnd=if(line.user)7.dp else 20.dp,bottomStart=20.dp,bottomEnd=20.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=if(line.user).10f else .09f)),modifier=Modifier.widthIn(max=310.dp)) {
+          Surface(color=if(line.user)Color(0xE66F55B9) else Color(0xE62B2A29),shape=RoundedCornerShape(topStart=if(line.user)20.dp else 7.dp,topEnd=if(line.user)7.dp else 20.dp,bottomStart=20.dp,bottomEnd=20.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=if(line.user) .10f else .09f)),modifier=Modifier.widthIn(max=310.dp)) {
            RichMessageText(line.text,line.user)
           }
          }
