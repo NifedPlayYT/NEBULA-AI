@@ -164,36 +164,73 @@ private val people = listOf(
      Text("NEBULA AI",fontSize=11.sp,color=Muted,fontWeight=FontWeight.Bold,letterSpacing=1.5.sp)
      Text("Твои диалоги и персонажи хранятся локально на устройстве. Для работы AI нужен действующий API-провайдер.",fontSize=12.sp,color=Muted,lineHeight=18.sp,modifier=Modifier.padding(top=7.dp,bottom=18.dp))
     }
-    "chat" -> Column(Modifier.fillMaxSize()) {
+    "chat" -> {
      val avatarIndex=allPeople.indexOfFirst{it.name==selected.name}.coerceAtLeast(0)
      val chatListState=rememberLazyListState()
+     val backdrop=ImageBitmap.imageResource(R.drawable.nebula_portraits)
+     val tileW=backdrop.width/2; val tileH=backdrop.height/2; val tile=(avatarIndex%4)
      LaunchedEffect(lines.size,lines.lastOrNull()?.text,busy,error) {
       if(lines.isNotEmpty()) chatListState.animateScrollToItem(lines.lastIndex)
      }
-     Row(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF29213F),Card))).padding(horizontal=10.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
-      IconButton(onClick={page="home"}){Icon(Icons.Outlined.ArrowBack,null,tint=Color.White)}
-      Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,44);Spacer(Modifier.width(11.dp));Column{Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp);Text(if(busy) "Сейчас отвечает…" else "На связи · NEBULA AI",fontSize=11.sp,color=if(busy)Yellow else Muted)}}
-      Surface(color=Field,shape=RoundedCornerShape(12.dp)){Icon(Icons.Outlined.AutoAwesome,null,tint=Purple,modifier=Modifier.padding(10.dp).size(19.dp))}
-     }
-     LazyColumn(state=chatListState,modifier=Modifier.weight(1f).fillMaxWidth().padding(horizontal=12.dp),contentPadding=PaddingValues(vertical=18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-      items(lines){line->AnimatedVisibility(visible=true,enter=fadeIn(tween(180))+slideInVertically(tween(220)){it/6}) {
-       Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom){
-        if(!line.user){PortraitAvatar(avatarIndex,29);Spacer(Modifier.width(7.dp))}
-        Surface(color=if(line.user)Color(0xFF7657D6) else Color(0xFF20202E),shape=RoundedCornerShape(topStart=if(line.user)18.dp else 6.dp,topEnd=if(line.user)6.dp else 18.dp,bottomStart=18.dp,bottomEnd=18.dp),border=if(line.user)null else BorderStroke(1.dp,Border),modifier=Modifier.widthIn(max=310.dp)){RichMessageText(line.text,line.user)}
-       }
-      }}
-      if(busy)item{Row(verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,26);Spacer(Modifier.width(8.dp));TypingIndicator()}}
-      if(error.isNotBlank())item{Text(error,color=Color(0xFFFF9999),fontSize=12.sp,modifier=Modifier.padding(start=36.dp))}
-     }
-     Row(Modifier.fillMaxWidth().background(Card).padding(horizontal=11.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
-      Surface(color=Field,shape=RoundedCornerShape(19.dp),border=BorderStroke(1.dp,Border),modifier=Modifier.weight(1f)) {
-       BasicTextField(input,{input=it},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=15.dp),singleLine=false,maxLines=4,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=15.sp),decorationBox={inner->if(input.isEmpty())Text("Написать сообщение…",color=Muted);inner()})
+     Box(Modifier.fillMaxSize()) {
+      Canvas(Modifier.fillMaxSize()) {
+       drawImage(backdrop,srcOffset=IntOffset((tile%2)*tileW,(tile/2)*tileH),srcSize=IntSize(tileW,tileH),dstSize=IntSize(size.width.toInt(),size.height.toInt()),alpha=0.46f)
+       drawRect(Brush.verticalGradient(0f to Color(0xAA08080D),0.34f to Color(0xB0101018),0.72f to Color(0xD8101018),1f to Color(0xF5101018)))
       }
-      Spacer(Modifier.width(8.dp))
-      IconButton(enabled=input.isNotBlank()&&!busy,onClick={
-       val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error="";persistCurrentChat()
-       scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,cleanModeState,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{persistCurrentChat();busy=false}}
-      },modifier=Modifier.background(Purple,RoundedCornerShape(14.dp))){Icon(Icons.Outlined.Send,"Отправить",tint=Color.White)}
+      Column(Modifier.fillMaxSize().imePadding()) {
+       Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
+        Surface(color=Color(0xAA17171F),shape=CircleShape,border=BorderStroke(1.dp,Color.White.copy(alpha=.12f))) {
+         IconButton(onClick={page="home"}){Icon(Icons.Outlined.ArrowBack,null,tint=Color.White)}
+        }
+        Spacer(Modifier.width(11.dp))
+        Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically) {
+         PortraitAvatar(avatarIndex,43)
+         Spacer(Modifier.width(10.dp))
+         Column {
+          Text(selected.name,fontWeight=FontWeight.Bold,fontSize=17.sp,color=Color.White)
+          Text(if(busy) "Печатает…" else "Персонаж NEBULA",fontSize=11.sp,color=if(busy)Yellow else Color.White.copy(alpha=.68f))
+         }
+        }
+        Surface(color=Color(0xAA17171F),shape=CircleShape,border=BorderStroke(1.dp,Color.White.copy(alpha=.12f))) {
+         IconButton(onClick={page="settings"}){Icon(Icons.Outlined.Tune,null,tint=Color.White)}
+        }
+       }
+       Surface(color=Color(0xB92A2928),shape=RoundedCornerShape(22.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.08f)),modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).padding(top=8.dp,bottom=12.dp)) {
+        Column(Modifier.padding(horizontal=18.dp,vertical=15.dp)) {
+         Text("ЗНАКОМСТВО",fontSize=10.sp,color=Yellow,fontWeight=FontWeight.Bold,letterSpacing=1.5.sp)
+         Text(selected.name,fontSize=19.sp,color=Color.White,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=4.dp))
+         Text(selected.bio.ifBlank{"Новая история начинается здесь."},fontSize=13.sp,lineHeight=19.sp,color=Color.White.copy(alpha=.78f),modifier=Modifier.padding(top=4.dp))
+        }
+       }
+       LazyColumn(state=chatListState,modifier=Modifier.weight(1f).fillMaxWidth().padding(horizontal=13.dp),contentPadding=PaddingValues(top=6.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
+        items(lines){line->AnimatedVisibility(visible=true,enter=fadeIn(tween(190))+slideInVertically(tween(220)){it/8}) {
+         Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom) {
+          if(!line.user){PortraitAvatar(avatarIndex,34);Spacer(Modifier.width(8.dp))}
+          Surface(color=if(line.user)Color(0xE66F55B9) else Color(0xE62B2A29),shape=RoundedCornerShape(topStart=if(line.user)20.dp else 7.dp,topEnd=if(line.user)7.dp else 20.dp,bottomStart=20.dp,bottomEnd=20.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=if(line.user).10f else .09f)),modifier=Modifier.widthIn(max=310.dp)) {
+           RichMessageText(line.text,line.user)
+          }
+         }
+        }}
+        if(busy)item { Row(verticalAlignment=Alignment.CenterVertically){PortraitAvatar(avatarIndex,30);Spacer(Modifier.width(8.dp));TypingIndicator()} }
+        if(error.isNotBlank())item { Text(error,color=Color(0xFFFFAAAA),fontSize=12.sp,modifier=Modifier.padding(start=42.dp)) }
+       }
+       Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal=13.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
+        Surface(color=Color(0xE62A2929),shape=RoundedCornerShape(30.dp),border=BorderStroke(1.dp,Color.White.copy(alpha=.14f)),modifier=Modifier.weight(1f)) {
+         Row(Modifier.padding(start=14.dp,end=7.dp,top=7.dp,bottom=7.dp),verticalAlignment=Alignment.CenterVertically) {
+          Icon(Icons.Outlined.AutoAwesome,null,tint=Color.White.copy(alpha=.8f),modifier=Modifier.size(21.dp))
+          Spacer(Modifier.width(10.dp))
+          BasicTextField(input,{input=it},modifier=Modifier.weight(1f).padding(vertical=10.dp),singleLine=false,maxLines=4,textStyle=androidx.compose.ui.text.TextStyle(color=Color.White,fontSize=15.sp),decorationBox={inner->if(input.isEmpty())Text("Сообщение ${selected.name}…",color=Color.White.copy(alpha=.55f),fontSize=14.sp);inner()})
+          Spacer(Modifier.width(6.dp))
+          IconButton(enabled=input.isNotBlank()&&!busy,onClick={
+           val sent=input.trim();input="";lines.add(Line(true,sent));lines.add(Line(false,""));val replyIndex=lines.lastIndex;busy=true;error="";persistCurrentChat()
+           scope.launch{try{askAiStream(base,model,apiKey,selected.name,selected.bio,cleanModeState,lines.dropLast(1).toList()){chunk->lines[replyIndex]=Line(false,lines[replyIndex].text+chunk)};if(lines[replyIndex].text.isBlank())error="Модель вернула пустой ответ."}catch(e:Exception){error=e.message?:"Ошибка API";if(lines[replyIndex].text.isBlank())lines.removeAt(replyIndex)}finally{persistCurrentChat();busy=false}}
+          },modifier=Modifier.size(42.dp).background(if(input.isNotBlank()&&!busy)Purple else Color(0xFF57515F),CircleShape)) {
+           Icon(Icons.Outlined.Send,"Отправить",tint=Color.White,modifier=Modifier.size(19.dp))
+          }
+         }
+        }
+       }
+      }
      }
     }
     "chats" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
