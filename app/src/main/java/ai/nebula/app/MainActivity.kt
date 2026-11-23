@@ -6,6 +6,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -16,7 +17,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.infiniteRepeatable
@@ -1028,7 +1029,7 @@ private fun personColors(index:Int):List<Color> = when(((index%4)+4)%4) {
       Row(Modifier.fillMaxWidth(),horizontalArrangement=if(line.user)Arrangement.End else Arrangement.Start,verticalAlignment=Alignment.Bottom) {
        if(!line.user) { PortraitAvatar(avatarIndex,31,person.initials); Spacer(Modifier.width(8.dp)) }
        Column(horizontalAlignment=if(line.user)Alignment.End else Alignment.Start) {
-        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(horizontal=5.dp,bottom=4.dp)) {
+        Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.padding(start=5.dp,end=5.dp,bottom=4.dp)) {
          Text(if(line.user)"ТЫ" else person.name.uppercase(),fontSize=8.sp,fontWeight=FontWeight.Black,color=if(line.user)Color(0xFFD4C5FF) else Muted,letterSpacing=1.sp)
          if(!line.user) {
           Spacer(Modifier.width(5.dp))
