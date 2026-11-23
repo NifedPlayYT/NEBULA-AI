@@ -136,7 +136,7 @@ private val people = listOf(
       (fadeOut(tween(130)) + slideOutHorizontally(tween(170)){-it/16})
     }
    ) { currentPage -> when(currentPage) {
-    "home" -> Home(allPeople,category,{category=it},search,{search=it}) { person ->
+    "home" -> Home(allPeople,category,{category=it},search,{search=it},onCreate={page="create"}) { person ->
      selected=person; lines.clear(); error=""; currentChatId=System.currentTimeMillis().toString()
      lines.add(Line(false,"Привет. Я ${person.name}. О чём поговорим?")); persistCurrentChat(); page="chat"
     }
@@ -285,7 +285,7 @@ private fun decodeChats(json:String):List<ChatSession> = try {
 @Composable private fun NavItem(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,onClick:()->Unit){
  Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=20.dp,vertical=13.dp),verticalAlignment=Alignment.CenterVertically){Icon(icon,null,tint=Muted);Spacer(Modifier.width(18.dp));Text(label,fontSize=16.sp)}
 }
-@Composable private fun Home(peopleList:List<Person>,category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onOpen:(Person)->Unit){
+@Composable private fun Home(peopleList:List<Person>,category:String,onCategory:(String)->Unit,search:String,onSearch:(String)->Unit,onCreate:()->Unit,onOpen:(Person)->Unit){
  val categories=listOf("Все","Аниме","Игры","ОС","Фэнтези","Реализм")
  val shown=peopleList.filter{(category=="Все"||it.category==category)&&(it.name.contains(search,true)||it.bio.contains(search,true))}
  Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom=24.dp)){
