@@ -502,10 +502,10 @@ private fun SettingsScreen(settings: AppSettings, onSettingsChange: (AppSettings
                     }
                     Switch(checked = settings.cleanMode, onCheckedChange = { onSettingsChange(settings.copy(cleanMode = it)) })
                 }
-                Text("СОБСТВЕННАЯ ИНСТРУКЦИЯ", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.padding(top = 17.dp, bottom = 7.dp))
+                Text("ПРОМПТ ДЛЯ СВОБОДНОГО РЕЖИМА", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.padding(top = 17.dp, bottom = 7.dp))
                 AppTextField(settings.customPrompt, { onSettingsChange(settings.copy(customPrompt = it)) },
-                    "Добавь описание поведения или личности персонажей…", minLines = 5)
-                Text("Инструкция применяется к каждому новому запросу и не отменяет базовые требования безопасности.",
+                    "Твоя инструкция включится только при выключенном Clean Mode…", minLines = 5)
+                Text("При включённом Clean Mode этот промпт не отправляется. В обоих режимах сохраняются базовые требования безопасности.",
                     color = MutedText, fontSize = 9.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
