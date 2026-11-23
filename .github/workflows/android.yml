@@ -1,9 +1,11 @@
-name: Build Android APK
+name: Build NEBULA AI v0.2 APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "global-redesign-v0.2", "global-redesign-v0.3" ]
+    branches: [ "main", "v0.2-rebuild" ]
+  pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: write
@@ -26,12 +28,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: "8.9"
       - name: Set version
         id: version
         shell: bash
         run: |
-          VERSION="0.1.${GITHUB_RUN_NUMBER}"
+          VERSION="0.2.${GITHUB_RUN_NUMBER}"
           CODE="${GITHUB_RUN_NUMBER}"
           sed -i "s/versionCode = .*/versionCode = ${CODE}/" app/build.gradle.kts
           sed -i "s/versionName = .*/versionName = \"${VERSION}\"/" app/build.gradle.kts
@@ -46,14 +48,19 @@ jobs:
             exit 1
           fi
           echo "$KEYSTORE_B64" | base64 --decode > app/nebula-release.keystore
-      - name: Build signed release APK
+      - name: Verify release unit tests
         env:
           NEBULA_KEYSTORE_PASSWORD: ${{ secrets.NEBULA_KEYSTORE_PASSWORD }}
           NEBULA_KEY_ALIAS: ${{ secrets.NEBULA_KEY_ALIAS }}
         run: |
           test -n "$NEBULA_KEYSTORE_PASSWORD" || (echo "::error::Add NEBULA_KEYSTORE_PASSWORD in GitHub Actions secrets." && exit 1)
           test -n "$NEBULA_KEY_ALIAS" || (echo "::error::Add NEBULA_KEY_ALIAS in GitHub Actions secrets." && exit 1)
-          gradle assembleRelease
+          gradle testReleaseUnitTest
+      - name: Build signed release APK
+        env:
+          NEBULA_KEYSTORE_PASSWORD: ${{ secrets.NEBULA_KEYSTORE_PASSWORD }}
+          NEBULA_KEY_ALIAS: ${{ secrets.NEBULA_KEY_ALIAS }}
+        run: gradle assembleRelease
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk "${{ steps.version.outputs.apk_name }}"
       - name: Remove signing key from workspace
@@ -65,13 +72,13 @@ jobs:
           name: NEBULA-AI-test-${{ steps.version.outputs.version }}
           path: ${{ steps.version.outputs.apk_name }}
       - name: Publish direct APK release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v0.2-rebuild'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: NEBULA AI v${{ steps.version.outputs.version }}
           body: |
-            NEBULA AI Android build.
+            NEBULA AI Android 0.2 rebuild.
 
             Version: ${{ steps.version.outputs.version }}
             Build: #${{ github.run_number }}
