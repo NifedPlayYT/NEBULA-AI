@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "global-redesign-v0.2" ]
 
 permissions:
   contents: write
@@ -55,7 +55,13 @@ jobs:
       - name: Remove signing key from workspace
         if: always()
         run: rm -f app/nebula-release.keystore
+      - name: Upload test APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEBULA-AI-test-${{ steps.version.outputs.version }}
+          path: ${{ steps.version.outputs.apk_name }}
       - name: Publish direct APK release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
