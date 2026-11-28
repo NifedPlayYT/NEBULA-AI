@@ -311,7 +311,7 @@ Deno.serve(async (req) => {
       .map((entry: any) => `${entry.title}: ${entry.content}`)
       .join("\n");
 
-    const queryVector = await embed(content);
+    const queryVector = await embed(loreSearchText);
     let memories: any[] = [];
     if (queryVector) {
       const vectorLiteral = `[${queryVector.map((value) => value.toFixed(8)).join(",")}]`;
