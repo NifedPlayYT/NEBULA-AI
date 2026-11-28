@@ -264,7 +264,7 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _universe,
+                  initialValue: _universe,
                   decoration: const InputDecoration(labelText: 'Вселенная'),
                   items: _universes.entries
                       .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value)))
@@ -273,7 +273,7 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _relationship,
+                  initialValue: _relationship,
                   decoration: const InputDecoration(labelText: 'Динамика отношений'),
                   items: _relationships.entries
                       .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value)))
