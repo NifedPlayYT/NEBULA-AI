@@ -23,7 +23,7 @@ const systemPrompt = [
   "Пиши выразительно, но не растягивай ответ без необходимости. Не повторяй приветствие в каждом сообщении.",
 ].join("\n");
 
-type ChatAction = "send" | "regenerate" | "select_variant";
+type ChatAction = "send" | "regenerate" | "edit" | "select_variant" | "branch";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -50,8 +50,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const action = (["send", "regenerate", "select_variant"].includes(body.action)
-      ? body.action
+    const requestedAction = String(body.action ?? "send");
+    const action = (["send", "regenerate", "edit", "select_variant", "branch"].includes(requestedAction)
+      ? requestedAction
       : "send") as ChatAction;
     const characterId = String(body.character_id ?? "");
     const branchId = String(body.branch_id ?? "");
@@ -65,7 +66,12 @@ Deno.serve(async (req) => {
     if (action === "send" && (!requestedContent || requestedContent.length > 6000)) {
       return respond({ error: "invalid_message" }, 400);
     }
-    if (action !== "send" && !messageId) return respond({ error: "message_id_required" }, 400);
+    if (action === "edit" && (!requestedContent || requestedContent.length > 6000 || !messageId)) {
+      return respond({ error: "invalid_edit" }, 400);
+    }
+    if (["regenerate", "select_variant", "branch"].includes(action) && !messageId) {
+      return respond({ error: "message_id_required" }, 400);
+    }
 
     const { data: character } = await admin
       .from("characters")
@@ -96,6 +102,20 @@ Deno.serve(async (req) => {
       return respond({ error: "branch_character_mismatch" }, 409);
     }
 
+    if (action === "branch") {
+      const newBranchId = crypto.randomUUID();
+      const { error: forkError } = await admin.rpc("fork_chat_branch", {
+        source_branch_id: branchId,
+        target_user_id: userId,
+        source_message_id: messageId,
+        new_branch_id: newBranchId,
+      });
+      if (forkError) {
+        return respond({ error: "branch_create_failed", message: "Не удалось создать ветку этой истории." }, 409);
+      }
+      return respond({ branch_id: newBranchId }, 201);
+    }
+
     const nextLockToken = crypto.randomUUID();
     const { data: acquired, error: lockError } = await admin.rpc("acquire_chat_turn", {
       target_branch_id: branchId,
@@ -116,7 +136,7 @@ Deno.serve(async (req) => {
     let turnMessage: any = null;
     let content = requestedContent;
 
-    if (action !== "send") {
+    if (action === "select_variant") {
       const { data: selectedMessage } = await admin
         .from("messages")
         .select("id,content,turn_id,variant_group,variant_index,created_at")
@@ -127,48 +147,74 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!selectedMessage) return respond({ error: "message_not_found" }, 404);
-      targetMessage = selectedMessage;
+      const { error } = await admin.rpc("select_message_variant", {
+        target_branch_id: branchId,
+        target_user_id: userId,
+        target_message_id: messageId,
+      });
+      if (error) return respond({ error: "variant_selection_failed" }, 500);
+      return respond({
+        selected: true,
+        message_id: selectedMessage.id,
+        reply: selectedMessage.content,
+        variant_group: selectedMessage.variant_group,
+        variant_index: selectedMessage.variant_index,
+      });
+    }
 
-      if (action === "select_variant") {
-        const { error } = await admin.rpc("select_message_variant", {
-          target_branch_id: branchId,
-          target_user_id: userId,
-          target_message_id: messageId,
-        });
-        if (error) return respond({ error: "variant_selection_failed" }, 500);
-        return respond({
-          selected: true,
-          message_id: selectedMessage.id,
-          reply: selectedMessage.content,
-          variant_group: selectedMessage.variant_group,
-          variant_index: selectedMessage.variant_index,
-        });
-      }
+    if (action === "edit") {
+      const { data: selectedUserMessage } = await admin
+        .from("messages")
+        .select("id,content,turn_id,created_at")
+        .eq("id", messageId)
+        .eq("branch_id", branchId)
+        .eq("user_id", userId)
+        .eq("role", "user")
+        .maybeSingle();
 
-      if (!selectedMessage.turn_id) {
-        return respond({ error: "turn_not_recoverable" }, 409);
+      if (!selectedUserMessage || !selectedUserMessage.turn_id) {
+        return respond({ error: "message_not_found" }, 404);
       }
+      targetMessage = selectedUserMessage;
+      turnMessage = selectedUserMessage;
+      content = requestedContent;
+    } else if (action === "regenerate") {
+      const { data: selectedAssistantMessage } = await admin
+        .from("messages")
+        .select("id,content,turn_id,variant_group,variant_index,created_at")
+        .eq("id", messageId)
+        .eq("branch_id", branchId)
+        .eq("user_id", userId)
+        .eq("role", "assistant")
+        .maybeSingle();
+
+      if (!selectedAssistantMessage || !selectedAssistantMessage.turn_id) {
+        return respond({ error: "message_not_found" }, 404);
+      }
+      targetMessage = selectedAssistantMessage;
 
       const { data: sourceUserMessage } = await admin
         .from("messages")
         .select("id,content,turn_id,created_at")
         .eq("branch_id", branchId)
         .eq("user_id", userId)
-        .eq("turn_id", selectedMessage.turn_id)
+        .eq("turn_id", selectedAssistantMessage.turn_id)
         .eq("role", "user")
         .maybeSingle();
 
       if (!sourceUserMessage) return respond({ error: "source_user_message_not_found" }, 409);
       turnMessage = sourceUserMessage;
       content = sourceUserMessage.content;
+    }
 
+    if (turnMessage) {
       const { count: laterUserTurns } = await admin
         .from("messages")
         .select("id", { count: "exact", head: true })
         .eq("branch_id", branchId)
         .eq("user_id", userId)
         .eq("role", "user")
-        .gt("created_at", sourceUserMessage.created_at);
+        .gt("created_at", turnMessage.created_at);
       if ((laterUserTurns ?? 0) > 0) {
         return respond({
           error: "branch_required",
@@ -210,7 +256,7 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(28);
 
-    if (action === "regenerate" && turnMessage) {
+    if (turnMessage) {
       historyQuery = admin
         .from("messages")
         .select("role,content")
@@ -230,8 +276,8 @@ Deno.serve(async (req) => {
         content: item.content,
       }));
 
-    if (action === "regenerate" && turnMessage) {
-      history.push({ role: "user", content: turnMessage.content });
+    if (turnMessage) {
+      history.push({ role: "user", content });
     }
 
     const keywords = content.toLowerCase()
@@ -298,7 +344,7 @@ Deno.serve(async (req) => {
       { role: "system", content: `${characterCard}\n${playerCard}\n${modeInstruction}` },
       ...(dynamicContext ? [{ role: "system" as const, content: dynamicContext }] : []),
       ...history,
-      ...(action === "send" ? [{ role: "user" as const, content }] : []),
+      ...(!turnMessage ? [{ role: "user" as const, content }] : []),
     ];
 
     const answer = await complete(messages, 850);
@@ -331,7 +377,22 @@ Deno.serve(async (req) => {
       if (saveError || !saved) return respond({ error: "message_save_failed" }, 500);
       userMessageId = saved.find((item: any) => item.role === "user")?.id ?? "";
       assistantMessageId = saved.find((item: any) => item.role === "assistant")?.id ?? "";
-    } else {
+    } else if (action === "edit" && turnMessage) {
+      variantGroup = crypto.randomUUID();
+      const { data: replaced, error: replaceError } = await admin.rpc("replace_chat_turn_reply", {
+        target_branch_id: branchId,
+        target_user_id: userId,
+        target_user_message_id: turnMessage.id,
+        replacement_content: content,
+        replacement_reply: answer,
+        replacement_variant_group: variantGroup,
+      });
+      if (replaceError || !replaced?.[0]) {
+        return respond({ error: "message_edit_failed" }, 500);
+      }
+      userMessageId = replaced[0].user_message_id;
+      assistantMessageId = replaced[0].assistant_message_id;
+    } else if (action === "regenerate" && turnMessage && targetMessage) {
       variantGroup = targetMessage.variant_group ?? crypto.randomUUID();
       if (!targetMessage.variant_group) {
         const { error: groupError } = await admin
@@ -374,15 +435,18 @@ Deno.serve(async (req) => {
         target_message_id: assistantMessageId,
       });
       if (selectError) return respond({ error: "variant_selection_failed" }, 500);
+      userMessageId = turnMessage.id;
     }
 
     if (action === "send") {
-      const { count } = await admin
+      const { count: userTurnCount } = await admin
         .from("messages")
         .select("id", { count: "exact", head: true })
-        .eq("branch_id", branchId);
+        .eq("branch_id", branchId)
+        .eq("user_id", userId)
+        .eq("role", "user");
 
-      if (count && count % 30 === 0) {
+      if (userTurnCount && userTurnCount % 15 === 0) {
         const endpoint = `${supabaseUrl}/functions/v1/summarize`;
         const summaryTask = fetch(endpoint, {
           method: "POST",
@@ -414,6 +478,7 @@ Deno.serve(async (req) => {
     if (error instanceof ProviderError) {
       return respond({ error: error.code, message: error.message }, error.status);
     }
+    console.error("Chat function error", error);
     return respond({ error: "internal_error", message: "Не удалось обработать сообщение." }, 500);
   } finally {
     if (lockToken && lockedBranchId) {
