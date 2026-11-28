@@ -54,6 +54,12 @@ begin
     and role = 'assistant'
     and turn_id = target_turn_id;
 
+  delete from public.conversation_summaries
+  where branch_id = target_branch_id;
+
+  delete from public.long_term_memories
+  where branch_id = target_branch_id;
+
   inserted_assistant_id := gen_random_uuid();
   insert into public.messages(
     id, branch_id, user_id, role, content, turn_id,
