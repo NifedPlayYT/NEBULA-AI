@@ -149,15 +149,14 @@ Deno.serve(async (req) => {
     }, { onConflict: "branch_id" });
     if (summaryError) return new Response("Summary save failed", { status: 500 });
 
-    let savedMemories = 0;
-    for (const memory of extracted.memories) {
+    const memoryRows = await Promise.all(extracted.memories.map(async (memory) => {
       const contentHash = await sha256(memory.content);
       const vector = await embed(memory.content);
       const embedding = vector
         ? `[${vector.map((value) => value.toFixed(8)).join(",")}]`
         : null;
 
-      const { error } = await db.from("long_term_memories").upsert({
+      return {
         user_id,
         character_id: branch.character_id,
         branch_id: ["fact", "preference"].includes(memory.memory_type) ? null : branch_id,
@@ -166,11 +165,24 @@ Deno.serve(async (req) => {
         content_hash: contentHash,
         embedding,
         importance: memory.importance,
-      }, {
-        onConflict: "user_id,character_id,content_hash",
-        ignoreDuplicates: true,
-      });
-      if (!error) savedMemories += 1;
+      };
+    }));
+
+    let savedMemories = 0;
+    if (memoryRows.length > 0) {
+      const { error, count } = await db.from("long_term_memories").upsert(
+        memoryRows,
+        {
+          onConflict: "user_id,character_id,content_hash",
+          ignoreDuplicates: true,
+          count: "exact",
+        },
+      );
+      if (error) {
+        console.error("Long-term memory persistence failed", error.message);
+      } else {
+        savedMemories = count ?? memoryRows.length;
+      }
     }
 
     return Response.json({
