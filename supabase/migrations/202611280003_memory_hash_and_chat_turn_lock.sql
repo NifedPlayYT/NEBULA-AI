@@ -2,8 +2,7 @@ alter table public.long_term_memories
   add column if not exists content_hash text;
 
 create unique index if not exists long_term_memories_deduplicate_idx
-  on public.long_term_memories(user_id, character_id, content_hash)
-  where content_hash is not null;
+  on public.long_term_memories(user_id, character_id, content_hash);
 
 alter table public.chat_branches
   add column if not exists turn_lock_token uuid,
@@ -20,7 +19,7 @@ security definer
 set search_path = public
 as $$
 declare
-  acquired boolean := false;
+  changed_rows integer := 0;
 begin
   if auth.role() <> 'service_role' then
     raise exception 'service role required';
@@ -33,8 +32,8 @@ begin
     and user_id = target_user_id
     and (turn_lock_until is null or turn_lock_until < now());
 
-  get diagnostics acquired = row_count;
-  return acquired;
+  get diagnostics changed_rows = row_count;
+  return changed_rows > 0;
 end;
 $$;
 
