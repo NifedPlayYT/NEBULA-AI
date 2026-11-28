@@ -36,9 +36,11 @@ class ChatTurn {
 class ChatConversation {
   const ChatConversation({
     required this.branchId,
+    required this.mode,
     required this.turns,
   });
 
   final String branchId;
+  final String mode;
   final List<ChatTurn> turns;
 }
