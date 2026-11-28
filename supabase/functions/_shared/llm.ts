@@ -25,7 +25,7 @@ function normalizeVector(values: number[]): number[] {
  return norm>0?values.map(value=>value/norm):values;
 }
 
-function poolEmbedding(payload: unknown): number[] | null {
+export function poolEmbedding(payload: unknown): number[] | null {
  const isVector=(value: unknown): value is number[] =>
   Array.isArray(value)&&value.length===1024&&value.every((item)=>typeof item==="number"&&Number.isFinite(item));
  if(isVector(payload)) return normalizeVector(payload);
