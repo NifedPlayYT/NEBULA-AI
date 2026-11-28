@@ -142,6 +142,16 @@ create index if not exists memory_facts_owner_character_idx
 create index if not exists memory_facts_embedding_idx
     on public.memory_facts using hnsw (embedding extensions.vector_cosine_ops);
 
+create table if not exists public.chat_usage_events (
+    id uuid primary key default gen_random_uuid(),
+    owner_id uuid not null references auth.users(id) on delete cascade,
+    conversation_id uuid references public.conversations(id) on delete set null,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists chat_usage_owner_created_idx
+    on public.chat_usage_events(owner_id, created_at desc);
+
 create table if not exists public.user_reports (
     id uuid primary key default gen_random_uuid(),
     reporter_id uuid not null references auth.users(id) on delete cascade,
@@ -242,6 +252,7 @@ alter table public.chat_messages enable row level security;
 alter table public.chat_summaries enable row level security;
 alter table public.memory_facts enable row level security;
 alter table public.user_reports enable row level security;
+alter table public.chat_usage_events enable row level security;
 alter table public.app_config enable row level security;
 alter table public.user_entitlements enable row level security;
 
@@ -343,6 +354,9 @@ create policy "reports_insert_own" on public.user_reports
         )
     );
 
+create policy "usage_read_own" on public.chat_usage_events
+    for select to authenticated using (owner_id = auth.uid());
+
 create policy "config_read_authenticated" on public.app_config
     for select to authenticated using (true);
 
@@ -426,6 +440,16 @@ begin
         raise exception 'branch_not_found' using errcode = 'P0002';
     end if;
 
+    if p_parent_message_id is not null and not exists (
+        select 1 from public.chat_messages m
+        where m.id = p_parent_message_id
+          and m.owner_id = v_user_id
+          and m.conversation_id = v_branch.conversation_id
+          and m.status = 'complete'
+    ) then
+        raise exception 'parent_message_not_found' using errcode = 'P0002';
+    end if;
+
     v_sequence := coalesce((
         select max(m.sequence) + 1
         from public.chat_messages m
@@ -493,6 +517,186 @@ begin
 end;
 $$;
 
+create unique index if not exists chat_messages_variant_unique
+    on public.chat_messages(parent_message_id, variant_group_id, variant_index)
+    where role = 'assistant' and variant_group_id is not null;
+
+create or replace function public.append_assistant_message(
+    p_owner_id uuid,
+    p_branch_id uuid,
+    p_parent_message_id uuid,
+    p_variant_group_id uuid
+)
+returns table(message_id uuid, variant_index integer)
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $
+declare
+    v_branch public.conversation_branches%rowtype;
+    v_sequence bigint;
+    v_next_variant integer;
+    v_message_id uuid := gen_random_uuid();
+begin
+    if auth.role() is distinct from 'service_role' then
+        raise exception 'service_role_required' using errcode = '42501';
+    end if;
+
+    select * into v_branch
+    from public.conversation_branches
+    where id = p_branch_id and owner_id = p_owner_id
+    for update;
+
+    if not found then
+        raise exception 'branch_not_found' using errcode = 'P0002';
+    end if;
+
+    perform 1
+    from public.chat_messages m
+    where m.id = p_parent_message_id
+      and m.owner_id = p_owner_id
+      and m.conversation_id = v_branch.conversation_id
+      and m.role = 'user'
+      and m.status = 'complete'
+    for update;
+
+    if not found then
+        raise exception 'parent_message_not_found' using errcode = 'P0002';
+    end if;
+
+    v_next_variant := coalesce((
+        select max(m.variant_index) + 1
+        from public.chat_messages m
+        where m.parent_message_id = p_parent_message_id
+          and m.variant_group_id = p_variant_group_id
+          and m.role = 'assistant'
+    ), 0);
+
+    v_sequence := coalesce((
+        select max(m.sequence) + 1
+        from public.chat_messages m
+        where m.branch_id = p_branch_id
+    ), 1);
+
+    insert into public.chat_messages(
+        id, conversation_id, branch_id, owner_id, role, content,
+        parent_message_id, variant_group_id, variant_index, sequence, status
+    )
+    values (
+        v_message_id, v_branch.conversation_id, p_branch_id, p_owner_id, 'assistant', '',
+        p_parent_message_id, p_variant_group_id, v_next_variant, v_sequence, 'pending'
+    );
+
+    update public.conversations set updated_at = now()
+    where id = v_branch.conversation_id and owner_id = p_owner_id;
+
+    return query select v_message_id, v_next_variant;
+end;
+$;
+
+revoke all on function public.append_assistant_message(uuid, uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.append_assistant_message(uuid, uuid, uuid, uuid) to service_role;
+
+create or replace function public.get_branch_history(
+    p_branch_id uuid,
+    p_tip_message_id uuid,
+    p_limit integer default 30
+)
+returns table(id uuid, role text, content text, sequence bigint)
+language sql
+stable
+security invoker
+set search_path = public, auth, pg_temp
+as $
+    with recursive path as (
+        select
+            m.id, m.conversation_id, m.parent_message_id, m.role, m.content,
+            m.sequence, array[m.id] as visited
+        from public.chat_messages m
+        join public.conversation_branches b
+          on b.id = m.branch_id and b.conversation_id = m.conversation_id
+        where m.id = p_tip_message_id
+          and m.branch_id = p_branch_id
+          and m.owner_id = auth.uid()
+          and b.owner_id = auth.uid()
+          and m.status = 'complete'
+
+        union all
+
+        select
+            parent.id, parent.conversation_id, parent.parent_message_id, parent.role,
+            parent.content, parent.sequence, path.visited || parent.id
+        from path
+        join public.chat_messages parent
+          on parent.id = path.parent_message_id
+         and parent.conversation_id = path.conversation_id
+         and parent.owner_id = auth.uid()
+         and parent.status = 'complete'
+        where not parent.id = any(path.visited)
+    ),
+    newest as (
+        select id, role, content, sequence
+        from path
+        order by sequence desc
+        limit greatest(1, least(p_limit, 30))
+    )
+    select id, role, content, sequence
+    from newest
+    order by sequence asc;
+$;
+
+grant execute on function public.get_branch_history(uuid, uuid, integer) to authenticated;
+
+create or replace function public.consume_chat_quota(
+    p_owner_id uuid,
+    p_conversation_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $
+declare
+    v_plan text := 'free';
+    v_limit integer := 60;
+    v_used integer := 0;
+begin
+    if auth.role() is distinct from 'service_role' then
+        raise exception 'service_role_required' using errcode = '42501';
+    end if;
+
+    select
+        case
+            when e.plan = 'plus' and (e.valid_until is null or e.valid_until > now()) then 'plus'
+            else 'free'
+        end
+    into v_plan
+    from public.user_entitlements e
+    where e.user_id = p_owner_id
+    for update;
+
+    if v_plan = 'plus' then
+        v_limit := 300;
+    end if;
+
+    select count(*)::integer into v_used
+    from public.chat_usage_events e
+    where e.owner_id = p_owner_id
+      and e.created_at > now() - interval '24 hours';
+
+    if v_used >= v_limit then
+        return false;
+    end if;
+
+    insert into public.chat_usage_events(owner_id, conversation_id)
+    values (p_owner_id, p_conversation_id);
+    return true;
+end;
+$;
+
+revoke all on function public.consume_chat_quota(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.consume_chat_quota(uuid, uuid) to service_role;
+
 create or replace function public.match_memory_facts(
     p_query_embedding extensions.vector(768),
     p_conversation_id uuid,
@@ -523,6 +727,7 @@ as $$
       and (
         f.conversation_id = p_conversation_id
         or (f.character_id = p_character_id and f.conversation_id is null)
+        or (f.character_id is null and f.conversation_id is null)
       )
       and 1 - (f.embedding <=> p_query_embedding) >= p_threshold
     order by f.embedding <=> p_query_embedding, f.importance desc

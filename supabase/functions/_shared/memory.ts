@@ -189,12 +189,15 @@ export async function runBranchSummary(ownerId: string, branchId: string): Promi
 
     try {
       const embedding = await createEmbedding(content, "RETRIEVAL_DOCUMENT");
-      const dedupeHash = await hashText(`${branch.conversation_id}:${type}:${content}`);
+      const globalFact = type === "player_fact" || type === "preference";
+      const dedupeHash = await hashText(
+        globalFact ? `${type}:${content}` : `${branch.conversation_id}:${type}:${content}`,
+      );
       const importance = Math.max(0, Math.min(1, Number(fact.importance ?? 0.5)));
       const { error } = await admin.from("memory_facts").upsert({
         owner_id: ownerId,
-        conversation_id: branch.conversation_id,
-        character_id: conversation.character_id,
+        conversation_id: globalFact ? null : branch.conversation_id,
+        character_id: globalFact ? null : conversation.character_id,
         fact_type: type,
         content,
         importance: Number.isFinite(importance) ? importance : 0.5,

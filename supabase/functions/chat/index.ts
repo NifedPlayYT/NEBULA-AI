@@ -166,32 +166,24 @@ Deno.serve(async (request) => {
       .maybeSingle();
     if (!parentMessage) return jsonError("The source message was not found.", 404, "message_not_found");
 
-    const { data: siblings } = await db.from("chat_messages")
-      .select("variant_group_id,variant_index")
-      .eq("parent_message_id", parentMessageId)
-      .eq("role", "assistant")
-      .eq("owner_id", user.id)
-      .order("variant_index", { ascending: true });
+    const groupId = parentMessageId;
 
-    const existingVariants = siblings ?? [];
-    const groupId = existingVariants.find((item) => item.variant_group_id)?.variant_group_id ??
-      crypto.randomUUID();
-    const variantIndex = existingVariants.length;
+    const { data: recentRows, error: recentError } = await db.rpc("get_branch_history", {
+      p_branch_id: branchId,
+      p_tip_message_id: parentMessageId,
+      p_limit: 30,
+    });
+    if (recentError) throw new Error("Не удалось загрузить выбранную ветку диалога.");
 
-    const { data: recentRows, error: recentError } = await db.from("chat_messages")
-      .select("id,role,content,sequence,status")
-      .eq("branch_id", branchId)
-      .eq("owner_id", user.id)
-      .eq("status", "complete")
-      .lte("sequence", parentMessage.sequence)
-      .order("sequence", { ascending: false })
-      .limit(30);
-    if (recentError) throw new Error("Не удалось загрузить историю диалога.");
-
-    const recent = (recentRows ?? []).reverse() as Array<{
+    const recent = (recentRows ?? []).map((message: {
+      id: string;
       role: "user" | "assistant";
       content: string;
-    }>;
+      sequence: number;
+    }) => ({
+      role: message.role,
+      content: message.content,
+    }));
 
     const [{ data: summary }, { data: loreRows }] = await Promise.all([
       db.from("chat_summaries").select("summary").eq("branch_id", branchId).eq("owner_id", user.id).maybeSingle(),
@@ -228,13 +220,15 @@ Deno.serve(async (request) => {
     request.signal.addEventListener("abort", () => abortController.abort(), { once: true });
     const upstream = await openChatStream(promptMessages, abortController.signal);
 
-    const { data: assistantId, error: appendError } = await admin.rpc("append_assistant_message", {
+    const { data: assistantRows, error: appendError } = await admin.rpc("append_assistant_message", {
       p_owner_id: user.id,
       p_branch_id: branchId,
       p_parent_message_id: parentMessageId,
       p_variant_group_id: groupId,
-      p_variant_index: variantIndex,
     });
+    const assistantRow = Array.isArray(assistantRows) ? assistantRows[0] : assistantRows;
+    const assistantId = assistantRow?.message_id;
+    const variantIndex = Number(assistantRow?.variant_index ?? 0);
     if (appendError || !assistantId) {
       await upstream.response.body?.cancel();
       return jsonError("Could not create the assistant message.", 409, "assistant_save_failed");
