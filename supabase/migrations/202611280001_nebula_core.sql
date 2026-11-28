@@ -459,7 +459,13 @@ begin
         select max(m.sequence) + 1
         from public.chat_messages m
         where m.branch_id = p_branch_id
-    ), 1);
+    ), coalesce((
+        select m.sequence
+        from public.chat_messages m
+        where m.id = v_parent_message_id
+          and m.owner_id = v_user_id
+          and m.conversation_id = v_branch.conversation_id
+    ), 0) + 1);
 
     insert into public.chat_messages(
         id, conversation_id, branch_id, owner_id, role, content,
