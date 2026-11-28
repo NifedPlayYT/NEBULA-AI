@@ -87,26 +87,33 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!branch) return new Response("Not found", { status: 404 });
 
-    const [{ data: rows }, { data: previous }] = await Promise.all([
+    const [{ data: rows }, { data: previous }, { count: totalMessageCount }] = await Promise.all([
       db.from("messages")
-        .select("role,content")
+        .select("role,content,created_at")
         .eq("branch_id", branch_id)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(150),
       db.from("conversation_summaries")
         .select("summary,summarized_message_count")
         .eq("branch_id", branch_id)
         .maybeSingle(),
+      db.from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("branch_id", branch_id),
     ]);
 
-    const messages = rows ?? [];
-    const summarizedCount = previous?.summarized_message_count ?? 0;
-    if (messages.length - summarizedCount < 15) {
+    const latestRows = (rows ?? []).reverse();
+    const totalCount = totalMessageCount ?? latestRows.length;
+    const previouslySummarizedCount = previous?.summarized_message_count ?? 0;
+    if (totalCount - previouslySummarizedCount < 15) {
       return Response.json({ skipped: true });
     }
 
-    const transcript = messages
-      .slice(Math.max(0, summarizedCount - 5))
+    const firstLoadedOffset = Math.max(0, totalCount - latestRows.length);
+    const overlapStartOffset = Math.max(0, previouslySummarizedCount - 5);
+    const transcriptStartIndex = Math.max(0, overlapStartOffset - firstLoadedOffset);
+    const transcript = latestRows
+      .slice(transcriptStartIndex)
       .map((message: any) => `${message.role}: ${message.content}`)
       .join("\n")
       .slice(-16000);
@@ -129,13 +136,13 @@ Deno.serve(async (req) => {
       },
     ];
 
-    const raw = await complete(prompt, 750);
+    const raw = await complete(prompt, 1100);
     const extracted = parsePayload(raw);
     const { error: summaryError } = await db.from("conversation_summaries").upsert({
       branch_id,
       user_id,
       summary: extracted.summary,
-      summarized_message_count: messages.length,
+      summarized_message_count: totalCount,
       updated_at: new Date().toISOString(),
     }, { onConflict: "branch_id" });
     if (summaryError) return new Response("Summary save failed", { status: 500 });
@@ -165,7 +172,7 @@ Deno.serve(async (req) => {
     }
 
     return Response.json({
-      summarized_messages: messages.length,
+      summarized_messages: totalCount,
       memories_saved: savedMemories,
     });
   } catch {
