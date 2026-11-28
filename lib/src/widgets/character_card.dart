@@ -95,8 +95,8 @@ class CharacterCard extends StatelessWidget {
       );
 
   String _compactCount(int count) {
-    if (count >= 1000000) return '\${(count / 1000000).toStringAsFixed(1)}M сообщений';
-    if (count >= 1000) return '\${(count / 1000).toStringAsFixed(1)}K сообщений';
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M сообщений';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K сообщений';
     return '$count сообщений';
   }
 }
