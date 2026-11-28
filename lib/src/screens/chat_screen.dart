@@ -157,6 +157,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _applyConversation(ChatConversation conversation) {
     _branchId = conversation.branchId;
+    _mode = conversation.mode;
     _lines.clear();
 
     if (conversation.turns.isEmpty) {
