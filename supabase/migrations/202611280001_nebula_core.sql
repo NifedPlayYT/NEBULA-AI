@@ -426,6 +426,15 @@ begin
         raise exception 'branch_not_found' using errcode = 'P0002';
     end if;
 
+    if p_parent_message_id is not null and not exists (
+        select 1 from public.chat_messages m
+        where m.id = p_parent_message_id
+          and m.owner_id = v_user_id
+          and m.conversation_id = v_branch.conversation_id
+    ) then
+        raise exception 'parent_message_not_found' using errcode = 'P0002';
+    end if;
+
     v_sequence := coalesce((
         select max(m.sequence) + 1
         from public.chat_messages m
@@ -492,6 +501,74 @@ begin
     return v_branch_id;
 end;
 $$;
+
+
+create or replace function public.append_assistant_message(
+    p_owner_id uuid,
+    p_branch_id uuid,
+    p_parent_message_id uuid,
+    p_variant_group_id uuid,
+    p_variant_index integer
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, auth, pg_temp
+as $
+declare
+    v_branch public.conversation_branches%rowtype;
+    v_sequence bigint;
+    v_message_id uuid := gen_random_uuid();
+begin
+    if auth.role() is distinct from 'service_role' then
+        raise exception 'service_role_required' using errcode = '42501';
+    end if;
+    if p_variant_index < 0 or p_variant_index > 100 then
+        raise exception 'variant_index_invalid' using errcode = '22023';
+    end if;
+
+    select * into v_branch
+    from public.conversation_branches
+    where id = p_branch_id and owner_id = p_owner_id
+    for update;
+
+    if not found then
+        raise exception 'branch_not_found' using errcode = 'P0002';
+    end if;
+    if not exists (
+        select 1 from public.chat_messages m
+        where m.id = p_parent_message_id
+          and m.owner_id = p_owner_id
+          and m.conversation_id = v_branch.conversation_id
+          and m.role = 'user'
+    ) then
+        raise exception 'parent_message_not_found' using errcode = 'P0002';
+    end if;
+
+    v_sequence := coalesce((
+        select max(m.sequence) + 1
+        from public.chat_messages m
+        where m.branch_id = p_branch_id
+    ), 1);
+
+    insert into public.chat_messages(
+        id, conversation_id, branch_id, owner_id, role, content,
+        parent_message_id, variant_group_id, variant_index, sequence, status
+    )
+    values (
+        v_message_id, v_branch.conversation_id, p_branch_id, p_owner_id, 'assistant', '',
+        p_parent_message_id, p_variant_group_id, p_variant_index, v_sequence, 'pending'
+    );
+
+    update public.conversations set updated_at = now()
+    where id = v_branch.conversation_id and owner_id = p_owner_id;
+
+    return v_message_id;
+end;
+$;
+
+revoke all on function public.append_assistant_message(uuid, uuid, uuid, uuid, integer) from public, anon, authenticated;
+grant execute on function public.append_assistant_message(uuid, uuid, uuid, uuid, integer) to service_role;
 
 create or replace function public.match_memory_facts(
     p_query_embedding extensions.vector(768),

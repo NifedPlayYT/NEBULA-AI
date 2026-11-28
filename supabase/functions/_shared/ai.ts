@@ -60,8 +60,10 @@ async function callProvider(
   provider: ProviderConfig,
   messages: ChatLine[],
   stream: boolean,
+  externalSignal?: AbortSignal,
 ): Promise<Response> {
-  const signal = AbortSignal.timeout(95_000);
+  const timeoutSignal = AbortSignal.timeout(95_000);
+  const signal = externalSignal ? AbortSignal.any([externalSignal, timeoutSignal]) : timeoutSignal;
   let response: Response;
   try {
     response = await fetch(provider.url, {
@@ -115,6 +117,7 @@ async function callProvider(
 async function request(
   messages: ChatLine[],
   stream: boolean,
+  externalSignal?: AbortSignal,
 ): Promise<{ response: Response; provider: string }> {
   const providers = getProviders();
   if (providers.length === 0) {
@@ -125,7 +128,7 @@ async function request(
   for (let index = 0; index < providers.length; index++) {
     const provider = providers[index];
     try {
-      const response = await callProvider(provider, messages, stream);
+      const response = await callProvider(provider, messages, stream, externalSignal);
       return { response, provider: provider.name };
     } catch (error) {
       if (index === 0) firstError = error;
@@ -143,8 +146,9 @@ async function request(
 
 export async function openChatStream(
   messages: ChatLine[],
+  signal?: AbortSignal,
 ): Promise<{ response: Response; provider: string }> {
-  return await request(messages, true);
+  return await request(messages, true, signal);
 }
 
 export async function completeChat(
