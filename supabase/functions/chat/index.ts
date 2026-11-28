@@ -109,6 +109,16 @@ Deno.serve(async (request) => {
       await db.from("conversations").update({ mode }).eq("id", conversationId).eq("owner_id", user.id);
     }
 
+    admin = createAdminClient();
+    const { data: quotaAllowed, error: quotaError } = await admin.rpc("consume_chat_quota", {
+      p_owner_id: user.id,
+      p_conversation_id: conversationId,
+    });
+    if (quotaError) throw new Error("Не удалось проверить дневной лимит.");
+    if (quotaAllowed !== true) {
+      return jsonError("Достигнут дневной лимит сообщений. Попробуй снова позже.", 429, "quota_exceeded");
+    }
+
     const { data: character, error: characterError } = await db
       .from("characters")
       .select("id,name,bio,category,greeting,instructions,examples")
@@ -214,8 +224,9 @@ Deno.serve(async (request) => {
       recent: recent as RecentMessage[],
     });
 
-    const upstream = await openChatStream(promptMessages);
-    admin = createAdminClient();
+    const abortController = new AbortController();
+    request.signal.addEventListener("abort", () => abortController.abort(), { once: true });
+    const upstream = await openChatStream(promptMessages, abortController.signal);
 
     const { data: assistantId, error: appendError } = await admin.rpc("append_assistant_message", {
       p_owner_id: user.id,
@@ -229,9 +240,6 @@ Deno.serve(async (request) => {
       return jsonError("Could not create the assistant message.", 409, "assistant_save_failed");
     }
     assistantMessageId = assistantId;
-
-    const abortController = new AbortController();
-    request.signal.addEventListener("abort", () => abortController.abort(), { once: true });
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
