@@ -214,9 +214,7 @@ Deno.serve(async (request) => {
       recent: recent as RecentMessage[],
     });
 
-    const abortController = new AbortController();
-    request.signal.addEventListener("abort", () => abortController.abort(), { once: true });
-    const upstream = await openChatStream(promptMessages, abortController.signal);
+    const upstream = await openChatStream(promptMessages);
     admin = createAdminClient();
 
     const { data: assistantId, error: appendError } = await admin.rpc("append_assistant_message", {
@@ -231,6 +229,9 @@ Deno.serve(async (request) => {
       return jsonError("Could not create the assistant message.", 409, "assistant_save_failed");
     }
     assistantMessageId = assistantId;
+
+    const abortController = new AbortController();
+    request.signal.addEventListener("abort", () => abortController.abort(), { once: true });
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
