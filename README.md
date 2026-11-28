@@ -19,7 +19,7 @@ Flutter Android client and Supabase backend for PG-13 character roleplay.
 - PostgreSQL schema, RLS policies and Storage bucket.
 - DeepSeek server-side provider adapter; optional OpenRouter strategy selected by server environment.
 - Recent context window, bounded context construction, Lorebook keyword retrieval and pgvector semantic memory lookup.
-- Background conversation summaries and long-term story memory extraction.
+- Background conversation summaries and long-term story memory extraction, with nullable embedding results covered by Deno unit tests.
 - Per-branch chat turn locks, turn IDs, persisted response variants, branch cloning and transactional edit of the most recent turn.
 - Account removal also attempts to remove user-owned artwork in Storage.
 
