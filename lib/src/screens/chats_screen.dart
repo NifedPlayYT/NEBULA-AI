@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../models/chat_list_item.dart';
-import '../models/character.dart';
 import 'auth_screen.dart';
 import 'chat_screen.dart';
 
