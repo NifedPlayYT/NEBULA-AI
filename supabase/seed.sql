@@ -9,7 +9,8 @@ on conflict (id) do update set name=excluded.name,avatar_url=excluded.avatar_url
  example_dialogues=excluded.example_dialogues,is_public=excluded.is_public;
 
 insert into public.lorebook_entries(character_id,title,content,keywords,priority)
-select id,'Лунный лес','Лесные руны реагируют на искренние обещания.',array['лес','руны','клятва','магия'],10 from public.characters where name='Лира Эвергрин'
-union all select id,'Неон-9','В городе кислотный дождь; корпорация Helix контролирует городские камеры.',array['неон-9','helix','камера','корпорация'],10 from public.characters where name='Ноа Вейл'
-union all select id,'Кофейня После дождя','Рен выбирает столик у окна и заказывает чай с бергамотом.',array['кофейня','чай','станция','окно'],8 from public.characters where name='Рен Аоки'
-union all select id,'Корабль Орбита','На корабле есть мостик, биолаборатория и архив; карта сектора Кеплер повреждена.',array['орбита','мостик','биолаборатория','кеплер'],10 from public.characters where name='ARIA-7';
+select id,'Лунный лес','Лесные руны реагируют на искренние обещания.',array['лес','руны','клятва','магия'],10 from public.characters where id='00000000-0000-4000-8000-000000000101'
+union all select id,'Неон-9','В городе кислотный дождь; корпорация Helix контролирует городские камеры.',array['неон-9','helix','камера','корпорация'],10 from public.characters where id='00000000-0000-4000-8000-000000000102'
+union all select id,'Кофейня После дождя','Рен выбирает столик у окна и заказывает чай с бергамотом.',array['кофейня','чай','станция','окно'],8 from public.characters where id='00000000-0000-4000-8000-000000000103'
+union all select id,'Корабль Орбита','На корабле есть мостик, биолаборатория и архив; карта сектора Кеплер повреждена.',array['орбита','мостик','биолаборатория','кеплер'],10 from public.characters where id='00000000-0000-4000-8000-000000000104'
+on conflict (character_id,title) do update set content=excluded.content,keywords=excluded.keywords,priority=excluded.priority;
