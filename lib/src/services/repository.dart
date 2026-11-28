@@ -39,17 +39,116 @@ class NebulaRepository {
     if (supabase == null) return demoCharacters;
 
     try {
-      final rows = await supabase
+      final publicRows = await supabase
           .from('characters')
           .select()
           .eq('is_public', true)
           .order('created_at', ascending: false)
           .limit(50);
-      if (rows.isEmpty) return demoCharacters;
-      return rows.map((row) => Character.fromMap(row)).toList();
+      final byId = <String, Character>{};
+      for (final row in publicRows) {
+        final character = Character.fromMap(row);
+        byId[character.id] = character;
+      }
+
+      final user = supabase.auth.currentUser;
+      if (user != null) {
+        final ownedRows = await supabase
+            .from('characters')
+            .select()
+            .eq('creator_id', user.id)
+            .order('created_at', ascending: false)
+            .limit(50);
+        for (final row in ownedRows) {
+          final character = Character.fromMap(row);
+          byId[character.id] = character;
+        }
+      }
+
+      if (byId.isEmpty) return demoCharacters;
+      return byId.values.toList(growable: false);
     } catch (_) {
       return demoCharacters;
     }
+  }
+
+  Future<Character> saveCharacter({
+    String? id,
+    required String name,
+    required String avatarUrl,
+    required String coverUrl,
+    required String genderPronouns,
+    required String universeTag,
+    required String relationshipDynamic,
+    required String personality,
+    required String backstory,
+    required String speechStyle,
+    required String greeting,
+    required List<Map<String, dynamic>> exampleDialogues,
+  }) async {
+    final supabase = client;
+    final user = supabase?.auth.currentUser;
+    if (supabase == null || user == null) {
+      throw StateError('Сначала войдите в аккаунт.');
+    }
+
+    final values = <String, dynamic>{
+      'name': name.trim(),
+      'avatar_url': avatarUrl,
+      'cover_url': coverUrl,
+      'gender_pronouns': genderPronouns.trim(),
+      'universe_tag': universeTag,
+      'relationship_dynamic': relationshipDynamic,
+      'personality': personality.trim(),
+      'backstory': backstory.trim(),
+      'speech_style': speechStyle.trim(),
+      'greeting': greeting.trim(),
+      'example_dialogues': exampleDialogues,
+    };
+
+    final Map<String, dynamic> saved;
+    if (id == null) {
+      values['creator_id'] = user.id;
+      values['is_public'] = false;
+      saved = await supabase.from('characters').insert(values).select().single();
+    } else {
+      saved = await supabase
+          .from('characters')
+          .update(values)
+          .eq('id', id)
+          .eq('creator_id', user.id)
+          .select()
+          .single();
+    }
+    return Character.fromMap(saved);
+  }
+
+  Future<String> uploadCharacterArt(Uint8List bytes, String mimeType) async {
+    final supabase = client;
+    final user = supabase?.auth.currentUser;
+    if (supabase == null || user == null) {
+      throw StateError('Сначала войдите в аккаунт.');
+    }
+    if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
+      throw ArgumentError('Изображение должно быть меньше 5 МБ.');
+    }
+
+    final extension = switch (mimeType) {
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      _ => 'jpg',
+    };
+    final objectPath = '${user.id}/characters/${const Uuid().v4()}.$extension';
+    await supabase.storage.from('character-art').uploadBinary(
+      objectPath,
+      bytes,
+      fileOptions: FileOptions(
+        contentType: mimeType,
+        cacheControl: '3600',
+        upsert: false,
+      ),
+    );
+    return supabase.storage.from('character-art').getPublicUrl(objectPath);
   }
 
   Future<List<UserPersona>> loadPersonas() async {
