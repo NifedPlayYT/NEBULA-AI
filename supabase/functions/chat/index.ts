@@ -53,7 +53,12 @@ Deno.serve(async(req)=>{
  const userMessage=savedMessages.find((m:any)=>m.role==="user");
  const assistantMessage=savedMessages.find((m:any)=>m.role==="assistant");
  const {count}=await admin.from("messages").select("id",{count:"exact",head:true}).eq("branch_id",bid);
- if(count&&count%15===0){const endpoint=url+"/functions/v1/summarize";void fetch(endpoint,{method:"POST",headers:{authorization:"Bearer "+service,apikey:service,"content-type":"application/json"},body:JSON.stringify({branch_id:bid,user_id:uid})}).catch(()=>undefined);}
+ if(count&&count%15===0){
+  const endpoint=url+"/functions/v1/summarize";
+  const summaryTask=fetch(endpoint,{method:"POST",headers:{authorization:"Bearer "+service,apikey:service,"content-type":"application/json"},body:JSON.stringify({branch_id:bid,user_id:uid})}).catch((error)=>console.error("Background summary failed",error));
+  const runtime=(globalThis as unknown as {EdgeRuntime?:{waitUntil:(task:Promise<unknown>)=>void}}).EdgeRuntime;
+  if(runtime?.waitUntil)runtime.waitUntil(summaryTask);else void summaryTask;
+ }
  return reply({reply:answer,branch_id:bid,user_message_id:userMessage?.id,assistant_message_id:assistantMessage?.id,variant_group:variantGroup,variant_index:0});
  }catch(e){if(e instanceof ProviderError)return reply({error:e.code,message:e.message},e.status);return reply({error:"internal_error"},500);}
  finally{if(lockToken&&lockedBranchId){try{const {error}=await admin.rpc("release_chat_turn",{target_branch_id:lockedBranchId,target_lock_token:lockToken});if(error)console.error("Chat lock release failed",error.message);}catch(error){console.error("Chat lock release failed",error);}}}
