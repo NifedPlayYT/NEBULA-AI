@@ -31,7 +31,7 @@ Flutter Android client and Supabase backend for PG-13 character roleplay.
 4. Set server-side Supabase Edge Function secrets:
 
    ```sh
-   supabase secrets set DEEPSEEK_API_KEY=... SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_SERVICE_ROLE_KEY=... HUGGINGFACE_API_KEY=...
+   supabase secrets set DEEPSEEK_API_KEY=... HUGGINGFACE_API_KEY=...
    ```
 
    Optional provider routing:
@@ -55,7 +55,7 @@ Flutter Android client and Supabase backend for PG-13 character roleplay.
    flutter run --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLIC_KEY
    ```
 
-Provider keys and the Supabase service role key must never be embedded in the Flutter client or APK.
+Supabase provides its project URL and server-side service-role environment to Edge Functions. Do not try to upload reserved Supabase environment variables as custom secrets. Provider keys and the service-role key must never be embedded in the Flutter client or APK.
 
 ## CI
 
