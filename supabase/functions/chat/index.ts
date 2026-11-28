@@ -319,6 +319,7 @@ Deno.serve(async (req) => {
         q: vectorLiteral,
         uid: userId,
         cid: characterId,
+        match_branch_id: branchId,
         amount: 6,
       });
       memories = data ?? [];
