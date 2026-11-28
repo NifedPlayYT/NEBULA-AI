@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
       db.from("messages")
         .select("role,content,created_at")
         .eq("branch_id", branch_id)
+        .eq("selected", true)
         .order("created_at", { ascending: false })
         .limit(150),
       db.from("conversation_summaries")
@@ -99,7 +100,8 @@ Deno.serve(async (req) => {
         .maybeSingle(),
       db.from("messages")
         .select("id", { count: "exact", head: true })
-        .eq("branch_id", branch_id),
+        .eq("branch_id", branch_id)
+        .eq("selected", true),
     ]);
 
     const latestRows = (rows ?? []).reverse();
