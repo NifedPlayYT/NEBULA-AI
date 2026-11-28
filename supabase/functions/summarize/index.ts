@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       const { error } = await db.from("long_term_memories").upsert({
         user_id,
         character_id: branch.character_id,
-        branch_id,
+        branch_id: ["fact", "preference"].includes(memory.memory_type) ? null : branch_id,
         memory_type: memory.memory_type,
         content: memory.content,
         content_hash: contentHash,
