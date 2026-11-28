@@ -204,37 +204,40 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty || _sending) return;
-    if (!await _ensureConversation() || !mounted) return;
 
-    _input.clear();
-    final userLine = _ChatLine(text: text, isUser: true);
-    setState(() {
-      _lines.add(userLine);
-      _sending = true;
-    });
-    _scrollToBottom();
-
+    // Claim the local send slot before awaiting auth or conversation loading.
+    // Two rapid taps can otherwise both pass the initial _sending check.
+    setState(() => _sending = true);
     try {
-      final result = await repository.sendMessage(
-        characterId: widget.character.id,
-        branchId: _branchId,
-        content: text,
-        mode: _mode,
-      );
-      if (!mounted) return;
+      if (!await _ensureConversation() || !mounted) return;
 
-      userLine.messageId = result.userMessageId;
-      final assistantLine = _ChatLine(text: result.text, isUser: false);
-      assistantLine.addVariant(result);
-      setState(() => _lines.add(assistantLine));
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _lines.add(_ChatLine(
-          text: 'Не удалось отправить сообщение. $error',
-          isUser: false,
-        ));
-      });
+      _input.clear();
+      final userLine = _ChatLine(text: text, isUser: true);
+      setState(() => _lines.add(userLine));
+      _scrollToBottom();
+
+      try {
+        final result = await repository.sendMessage(
+          characterId: widget.character.id,
+          branchId: _branchId,
+          content: text,
+          mode: _mode,
+        );
+        if (!mounted) return;
+
+        userLine.messageId = result.userMessageId;
+        final assistantLine = _ChatLine(text: result.text, isUser: false);
+        assistantLine.addVariant(result);
+        setState(() => _lines.add(assistantLine));
+      } catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _lines.add(_ChatLine(
+            text: 'Не удалось отправить сообщение. $error',
+            isUser: false,
+          ));
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _sending = false);
