@@ -154,6 +154,11 @@ Deno.serve(async (req) => {
         target_message_id: messageId,
       });
       if (error) return respond({ error: "variant_selection_failed" }, 500);
+      const { error: touchError } = await admin.from("chat_branches").update({
+        mode,
+        last_message_at: new Date().toISOString(),
+      }).eq("id", branchId).eq("user_id", userId);
+      if (touchError) return respond({ error: "branch_activity_update_failed" }, 500);
       return respond({
         selected: true,
         message_id: selectedMessage.id,
@@ -477,6 +482,14 @@ Deno.serve(async (req) => {
         if (runtime?.waitUntil) runtime.waitUntil(summaryTask);
         else void summaryTask;
       }
+    }
+
+    const { error: touchError } = await admin.from("chat_branches").update({
+      mode,
+      last_message_at: new Date().toISOString(),
+    }).eq("id", branchId).eq("user_id", userId);
+    if (touchError) {
+      console.error("Could not update chat activity metadata", touchError.message);
     }
 
     return respond({
