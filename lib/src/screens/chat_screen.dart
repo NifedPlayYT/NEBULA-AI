@@ -25,7 +25,6 @@ class _ChatLine {
     required this.text,
     required this.isUser,
     this.messageId,
-    this.variantGroup,
   });
 
   String text;
