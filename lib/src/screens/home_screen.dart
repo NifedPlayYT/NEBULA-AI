@@ -10,10 +10,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   late Future<List<Character>> future;
   String query = '';
 
@@ -21,6 +21,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     future = repository.loadCharacters();
+  }
+
+  void reload() {
+    if (!mounted) return;
+    setState(() => future = repository.loadCharacters());
   }
 
   Future<void> createCharacter() async {
