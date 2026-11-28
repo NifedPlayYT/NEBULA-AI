@@ -417,12 +417,13 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public, auth, pg_temp
-as $$
+as $fn$
 declare
     v_user_id uuid := auth.uid();
     v_branch public.conversation_branches%rowtype;
     v_sequence bigint;
     v_message_id uuid := gen_random_uuid();
+    v_parent_message_id uuid := p_parent_message_id;
 begin
     if v_user_id is null then
         raise exception 'authentication_required' using errcode = '28000';
@@ -440,9 +441,13 @@ begin
         raise exception 'branch_not_found' using errcode = 'P0002';
     end if;
 
-    if p_parent_message_id is not null and not exists (
+    if v_parent_message_id is null then
+        v_parent_message_id := v_branch.forked_from_message_id;
+    end if;
+
+    if v_parent_message_id is not null and not exists (
         select 1 from public.chat_messages m
-        where m.id = p_parent_message_id
+        where m.id = v_parent_message_id
           and m.owner_id = v_user_id
           and m.conversation_id = v_branch.conversation_id
           and m.status = 'complete'
@@ -462,15 +467,14 @@ begin
     )
     values (
         v_message_id, v_branch.conversation_id, p_branch_id, v_user_id, 'user',
-        trim(p_content), p_parent_message_id, v_sequence, 'complete'
+        trim(p_content), v_parent_message_id, v_sequence, 'complete'
     );
 
     update public.conversations set updated_at = now()
     where id = v_branch.conversation_id and owner_id = v_user_id;
-
     return v_message_id;
 end;
-$$;
+$fn$;
 
 create or replace function public.create_conversation_branch(
     p_conversation_id uuid,
@@ -481,26 +485,31 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public, auth, pg_temp
-as $$
+as $fn$
 declare
     v_user_id uuid := auth.uid();
     v_branch_id uuid := gen_random_uuid();
     v_parent_branch_id uuid;
+    v_fork_sequence bigint;
 begin
     if v_user_id is null then
         raise exception 'authentication_required' using errcode = '28000';
     end if;
     if not exists (
-        select 1 from public.conversations c where c.id = p_conversation_id and c.owner_id = v_user_id
+        select 1 from public.conversations c
+        where c.id = p_conversation_id and c.owner_id = v_user_id
     ) then
         raise exception 'conversation_not_found' using errcode = 'P0002';
     end if;
+
     if p_from_message_id is not null then
-        select m.branch_id into v_parent_branch_id
+        select m.branch_id, m.sequence
+        into v_parent_branch_id, v_fork_sequence
         from public.chat_messages m
         where m.id = p_from_message_id
           and m.conversation_id = p_conversation_id
-          and m.owner_id = v_user_id;
+          and m.owner_id = v_user_id
+          and m.status = 'complete';
         if v_parent_branch_id is null then
             raise exception 'message_not_found' using errcode = 'P0002';
         end if;
@@ -513,9 +522,23 @@ begin
         v_branch_id, p_conversation_id, v_user_id, v_parent_branch_id,
         p_from_message_id, left(p_title, 100)
     );
+
+    if p_from_message_id is not null then
+        insert into public.chat_summaries(
+            conversation_id, branch_id, owner_id, summary, up_to_sequence, updated_at
+        )
+        select
+            p_conversation_id, v_branch_id, v_user_id, s.summary, s.up_to_sequence, now()
+        from public.chat_summaries s
+        where s.branch_id = v_parent_branch_id
+          and s.owner_id = v_user_id
+          and s.up_to_sequence <= v_fork_sequence
+        on conflict (branch_id) do nothing;
+    end if;
+
     return v_branch_id;
 end;
-$$;
+$fn$;
 
 create unique index if not exists chat_messages_variant_unique
     on public.chat_messages(parent_message_id, variant_group_id, variant_index)
@@ -531,7 +554,7 @@ returns table(message_id uuid, variant_index integer)
 language plpgsql
 security definer
 set search_path = public, auth, pg_temp
-as $
+as $fn$
 declare
     v_branch public.conversation_branches%rowtype;
     v_sequence bigint;
@@ -546,7 +569,6 @@ begin
     from public.conversation_branches
     where id = p_branch_id and owner_id = p_owner_id
     for update;
-
     if not found then
         raise exception 'branch_not_found' using errcode = 'P0002';
     end if;
@@ -559,7 +581,6 @@ begin
       and m.role = 'user'
       and m.status = 'complete'
     for update;
-
     if not found then
         raise exception 'parent_message_not_found' using errcode = 'P0002';
     end if;
@@ -589,10 +610,9 @@ begin
 
     update public.conversations set updated_at = now()
     where id = v_branch.conversation_id and owner_id = p_owner_id;
-
     return query select v_message_id, v_next_variant;
 end;
-$;
+$fn$;
 
 revoke all on function public.append_assistant_message(uuid, uuid, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.append_assistant_message(uuid, uuid, uuid, uuid) to service_role;
@@ -607,11 +627,11 @@ language sql
 stable
 security invoker
 set search_path = public, auth, pg_temp
-as $
+as $fn$
     with recursive path as (
         select
             m.id, m.conversation_id, m.parent_message_id, m.role, m.content,
-            m.sequence, array[m.id] as visited
+            m.sequence, 0 as depth, array[m.id] as visited
         from public.chat_messages m
         join public.conversation_branches b
           on b.id = m.branch_id and b.conversation_id = m.conversation_id
@@ -625,7 +645,7 @@ as $
 
         select
             parent.id, parent.conversation_id, parent.parent_message_id, parent.role,
-            parent.content, parent.sequence, path.visited || parent.id
+            parent.content, parent.sequence, path.depth + 1, path.visited || parent.id
         from path
         join public.chat_messages parent
           on parent.id = path.parent_message_id
@@ -635,15 +655,15 @@ as $
         where not parent.id = any(path.visited)
     ),
     newest as (
-        select id, role, content, sequence
+        select id, role, content, sequence, depth
         from path
-        order by sequence desc
+        order by depth asc
         limit greatest(1, least(p_limit, 30))
     )
     select id, role, content, sequence
     from newest
-    order by sequence asc;
-$;
+    order by depth desc;
+$fn$;
 
 grant execute on function public.get_branch_history(uuid, uuid, integer) to authenticated;
 
@@ -655,7 +675,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = public, auth, pg_temp
-as $
+as $fn$
 declare
     v_plan text := 'free';
     v_limit integer := 60;
@@ -675,24 +695,20 @@ begin
     where e.user_id = p_owner_id
     for update;
 
-    if v_plan = 'plus' then
-        v_limit := 300;
-    end if;
+    if v_plan = 'plus' then v_limit := 300; end if;
 
     select count(*)::integer into v_used
     from public.chat_usage_events e
     where e.owner_id = p_owner_id
       and e.created_at > now() - interval '24 hours';
 
-    if v_used >= v_limit then
-        return false;
-    end if;
+    if v_used >= v_limit then return false; end if;
 
     insert into public.chat_usage_events(owner_id, conversation_id)
     values (p_owner_id, p_conversation_id);
     return true;
 end;
-$;
+$fn$;
 
 revoke all on function public.consume_chat_quota(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.consume_chat_quota(uuid, uuid) to service_role;
