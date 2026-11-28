@@ -5,7 +5,6 @@ import '../models/character.dart';
 import '../widgets/character_card.dart';
 import 'auth_screen.dart';
 import 'character_editor_screen.dart';
-import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,15 +48,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _openProfile() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-    );
-    if (mounted) {
-      setState(() => future = repository.loadCharacters());
-    }
-  }
-
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
@@ -90,11 +80,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               tooltip: 'Создать персонажа',
                               onPressed: createCharacter,
                               icon: const Icon(Icons.add_circle_outline, size: 26),
-                            ),
-                            IconButton(
-                              tooltip: 'Профиль',
-                              onPressed: _openProfile,
-                              icon: const Icon(Icons.account_circle_outlined, size: 28),
                             ),
                           ],
                         ),
