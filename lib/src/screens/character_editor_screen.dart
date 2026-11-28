@@ -115,11 +115,10 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
       setState(() => _error = 'Добавьте описание внешности для генерации обложки.');
       return;
     }
-    final prompt = 'high quality vertical anime character portrait, $description, cinematic lighting, detailed background';
-    final uri = Uri.https(
-      'image.pollinations.ai',
-      '/prompt/$prompt',
-      const {'width': '600', 'height': '800', 'nologo': 'true'},
+    final prompt = 'PG-13 safe, non-sexual, fully clothed anime character portrait, $description, cinematic lighting, detailed background';
+    final encodedPrompt = Uri.encodeComponent(prompt);
+    final uri = Uri.parse(
+      'https://image.pollinations.ai/prompt/$encodedPrompt?width=600&height=800&nologo=true',
     );
     setState(() {
       _avatarUrl = uri.toString();
