@@ -472,7 +472,7 @@ class _ChatScreenState extends State<ChatScreen> {
     required bool canRegenerate,
   }) {
     final alignment = line.isUser ? Alignment.centerRight : Alignment.centerLeft;
-    final color = line.isUser ? const Color(0xFF7056C8) : const Color(0xFF1A2030);
+    final color = line.isUser ? const Color(0xFF6650AE) : const Color(0xFF171D2C);
 
     final actions = <Widget>[];
     if (line.isUser && line.messageId != null) {
@@ -561,9 +561,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(19),
+                    topRight: const Radius.circular(19),
+                    bottomLeft: Radius.circular(line.isUser ? 19 : 6),
+                    bottomRight: Radius.circular(line.isUser ? 6 : 19),
+                  ),
+                  border: line.isUser ? null : Border.all(color: const Color(0xFF293044)),
                 ),
-                child: Text(line.text, style: const TextStyle(height: 1.4)),
+                child: Text(line.text, style: const TextStyle(height: 1.48, fontSize: 14)),
               ),
               if (actions.isNotEmpty)
                 Wrap(
@@ -599,6 +605,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: nebulaBackground,
         titleSpacing: 0,
         title: Row(
           children: [
@@ -618,7 +625,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Text(
                     widget.character.name,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -.2),
                   ),
                   const Text(
                     'NEBULA STORY',
@@ -632,8 +639,10 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10),
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: nebulaSurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF252B3B))),
             child: SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'chat', label: Text('Чат')),
@@ -683,11 +692,17 @@ class _ChatScreenState extends State<ChatScreen> {
                       onSubmitted: (_) => _send(),
                       decoration: InputDecoration(
                         hintText: 'Напиши сообщение…',
+                        prefixIcon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF858CA0)),
                         filled: true,
-                        fillColor: const Color(0xFF171B29),
+                        fillColor: nebulaSurface,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.circular(19),
+                          borderSide: const BorderSide(color: Color(0xFF293044)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(19),
+                          borderSide: const BorderSide(color: Color(0xFF293044)),
                         ),
                       ),
                     ),
