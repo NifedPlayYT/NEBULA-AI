@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: android-${{ github.ref }}
+  group: ${{ github.workflow }}-android-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
