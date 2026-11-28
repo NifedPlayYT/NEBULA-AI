@@ -9,6 +9,12 @@ import 'services/repository.dart';
 
 final repository = NebulaRepository();
 
+const nebulaBackground = Color(0xFF080A12);
+const nebulaSurface = Color(0xFF121624);
+const nebulaSurfaceRaised = Color(0xFF1A2031);
+const nebulaAccent = Color(0xFFAA8BFF);
+const nebulaAccentSoft = Color(0xFF7660C8);
+
 class NebulaApp extends StatelessWidget {
   const NebulaApp({super.key});
 
@@ -19,10 +25,72 @@ class NebulaApp extends StatelessWidget {
         theme: ThemeData(
           brightness: Brightness.dark,
           useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF090B12),
+          scaffoldBackgroundColor: nebulaBackground,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF9B7BFF),
+            seedColor: nebulaAccent,
             brightness: Brightness.dark,
+            surface: nebulaSurface,
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: nebulaBackground,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: false,
+            titleTextStyle: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.4,
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: nebulaSurface,
+            hintStyle: const TextStyle(color: Color(0xFF777E91), fontSize: 14),
+            labelStyle: const TextStyle(color: Color(0xFFA6AABD)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 17, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(17),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(17),
+              borderSide: const BorderSide(color: Color(0xFF242A3B)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(17),
+              borderSide: const BorderSide(color: nebulaAccent, width: 1.3),
+            ),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: nebulaAccentSoft,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: nebulaAccentSoft.withValues(alpha: .35),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: .1),
+            ),
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            height: 72,
+            backgroundColor: const Color(0xFF0D111D),
+            indicatorColor: nebulaAccent.withValues(alpha: .18),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+                  fontSize: 11,
+                  fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+                  color: states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF7F879A),
+                )),
+            iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
+                  size: 22,
+                  color: states.contains(WidgetState.selected) ? nebulaAccent : const Color(0xFF7F879A),
+                )),
+          ),
+          dividerColor: const Color(0xFF242A3B),
+          snackBarTheme: SnackBarThemeData(
+            backgroundColor: nebulaSurfaceRaised,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
         home: const MainNavigationScreen(),
@@ -61,16 +129,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: _pages,
-        ),
+        body: IndexedStack(index: _selectedIndex, children: _pages),
         bottomNavigationBar: NavigationBar(
-          height: 72,
           selectedIndex: _selectedIndex,
           onDestinationSelected: _selectTab,
-          backgroundColor: const Color(0xFF111522),
-          indicatorColor: const Color(0xFF4A3A77),
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.forum_outlined),
