@@ -84,9 +84,9 @@ class NebulaRepository {
 
     final branchRows = await supabase
         .from('chat_branches')
-        .select('id,title,character_id,created_at')
+        .select('id,title,character_id,last_message_at')
         .eq('user_id', user.id)
-        .order('created_at', ascending: false)
+        .order('last_message_at', ascending: false)
         .limit(80);
     if (branchRows.isEmpty) return const [];
 
@@ -129,7 +129,7 @@ class NebulaRepository {
         title: (row['title'] as String?)?.trim().isNotEmpty == true
             ? row['title'] as String
             : character.name,
-        createdAt: DateTime.parse(row['created_at'] as String),
+        createdAt: DateTime.parse(row['last_message_at'] as String),
         character: character,
         lastMessage: latestMessageByBranch[branchId] ?? character.greeting,
       ));
@@ -350,6 +350,16 @@ class NebulaRepository {
       throw StateError('Для истории необходимо войти в аккаунт.');
     }
 
+    final branchRow = await supabase
+        .from('chat_branches')
+        .select('id,mode')
+        .eq('id', branchId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (branchRow == null) {
+      throw StateError('История не найдена или больше недоступна.');
+    }
+
     final rows = await supabase
         .from('messages')
         .select('id,role,content,turn_id,variant_index,selected,created_at')
@@ -401,7 +411,11 @@ class NebulaRepository {
       ));
     }
 
-    return ChatConversation(branchId: branchId, turns: turns);
+    final savedMode = branchRow['mode'] as String?;
+    final mode = ['chat', 'roleplay', 'adventure'].contains(savedMode)
+        ? savedMode!
+        : 'roleplay';
+    return ChatConversation(branchId: branchId, mode: mode, turns: turns);
   }
 
   Future<ChatConversation> branchFromMessage({
