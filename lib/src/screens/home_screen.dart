@@ -139,7 +139,7 @@ class HomeScreenState extends State<HomeScreen> {
                                     child: const Text('ТВОЯ ВСЕЛЕННАЯ', style: TextStyle(fontSize: 9, letterSpacing: 1.7, fontWeight: FontWeight.w800, color: Color(0xFFD7C9FF))),
                                   ),
                                   const SizedBox(height: 13),
-                                  const Text('Истории, которые\\nоживают вместе с тобой', style: TextStyle(fontSize: 22, height: 1.13, fontWeight: FontWeight.w800, letterSpacing: -.5)),
+                                  const Text('Истории, которые\nоживают вместе с тобой', style: TextStyle(fontSize: 22, height: 1.13, fontWeight: FontWeight.w800, letterSpacing: -.5)),
                                   const SizedBox(height: 8),
                                   const Text('Выбирай персонажа. Задавай направление. Создавай свою историю.', style: TextStyle(fontSize: 11, height: 1.45, color: Color(0xFFB6B4C7))),
                                 ],
@@ -199,7 +199,7 @@ class HomeScreenState extends State<HomeScreen> {
                     }
                     if (snapshot.hasError) {
                       return SliverFillRemaining(
-                        child: Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Не удалось загрузить каталог: \${snapshot.error}'))),
+                        child: Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Не удалось загрузить каталог: ${snapshot.error}'))),
                       );
                     }
 
