@@ -7,15 +7,6 @@ import '../models/character.dart';
 import '../services/repository.dart';
 import 'auth_screen.dart';
 
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.character});
-
-  final Character character;
-
-  @override
-  State<ChatScreen> createState() => _ChatScreenState();
-}
-
 class _MessageVariant {
   const _MessageVariant({
     required this.id,
