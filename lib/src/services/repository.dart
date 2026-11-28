@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -368,7 +367,7 @@ class NebulaRepository {
         .order('created_at', ascending: true)
         .limit(600);
 
-    final grouped = LinkedHashMap<String, List<Map<String, dynamic>>>();
+    final grouped = <String, List<Map<String, dynamic>>>{};
     String? currentLegacyTurn;
     var legacyIndex = 0;
 
