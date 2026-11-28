@@ -175,7 +175,7 @@ Deno.serve(async (request) => {
     });
     if (recentError) throw new Error("Не удалось загрузить выбранную ветку диалога.");
 
-    const recent = (recentRows ?? []).map((message: {
+    const recent: RecentMessage[] = (recentRows ?? []).map((message: {
       id: string;
       role: "user" | "assistant";
       content: string;
