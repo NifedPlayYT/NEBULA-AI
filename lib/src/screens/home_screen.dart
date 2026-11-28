@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../app.dart';
 import '../models/character.dart';
 import '../widgets/character_card.dart';
+import 'profile_screen.dart';
 class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @override State<HomeScreen> createState()=>_HomeScreenState(); }
 class _HomeScreenState extends State<HomeScreen> {
  late Future<List<Character>> future; String query='';
@@ -9,7 +10,10 @@ class _HomeScreenState extends State<HomeScreen> {
  @override Widget build(BuildContext context)=>Scaffold(body:SafeArea(child:RefreshIndicator(onRefresh:()async{setState(()=>future=repository.loadCharacters());await future;},
  child:CustomScrollView(slivers:[
   SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.fromLTRB(20,22,20,18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-   const Text('NEBULA',style:TextStyle(fontSize:28,fontWeight:FontWeight.w900,letterSpacing:3)),
+   Row(children:[
+    const Expanded(child:Text('NEBULA',style:TextStyle(fontSize:28,fontWeight:FontWeight.w900,letterSpacing:3))),
+    IconButton(tooltip:'Профиль',onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ProfileScreen())),icon:const Icon(Icons.account_circle_outlined,size:28))
+   ]),
    const Text('ТВОИ ИСТОРИИ НАЧИНАЮТСЯ ЗДЕСЬ',style:TextStyle(fontSize:10,letterSpacing:1.6,color:Colors.white54)),
    const SizedBox(height:20),
    TextField(onChanged:(v)=>setState(()=>query=v.trim().toLowerCase()),decoration:InputDecoration(hintText:'Найти персонажа или вселенную',prefixIcon:const Icon(Icons.search),filled:true,fillColor:const Color(0xFF171B29),border:OutlineInputBorder(borderRadius:BorderRadius.circular(16),borderSide:BorderSide.none))),
