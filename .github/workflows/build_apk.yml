@@ -24,6 +24,12 @@ jobs:
           cache: true
       - name: Generate Android platform scaffolding
         run: flutter create --platforms=android --project-name nebula_ai .
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Functions
+        run: deno check supabase/functions/_shared/llm.ts supabase/functions/chat/index.ts supabase/functions/summarize/index.ts supabase/functions/delete-account/index.ts
       - name: Install dependencies
         run: flutter pub get
       - name: Format Dart sources
