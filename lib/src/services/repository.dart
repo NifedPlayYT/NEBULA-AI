@@ -1,9 +1,11 @@
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/character.dart';
+import '../models/chat_conversation.dart';
 import '../models/user_persona.dart';
 
 class ChatReply {
@@ -245,6 +247,126 @@ class NebulaRepository {
     return supabase.storage.from('character-art').getPublicUrl(objectPath);
   }
 
+  Future<ChatConversation> openConversation(String characterId) async {
+    final supabase = client;
+    final user = supabase?.auth.currentUser;
+    if (supabase == null || user == null) {
+      throw StateError('Для истории необходимо войти в аккаунт.');
+    }
+
+    final existing = await supabase
+        .from('chat_branches')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('character_id', characterId)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    late final String branchId;
+    if (existing != null) {
+      branchId = existing['id'] as String;
+    } else {
+      branchId = const Uuid().v4();
+      await supabase.from('chat_branches').insert({
+        'id': branchId,
+        'user_id': user.id,
+        'character_id': characterId,
+        'title': 'Новая история',
+        'mode': 'roleplay',
+      });
+    }
+
+    return loadConversation(branchId);
+  }
+
+  Future<ChatConversation> loadConversation(String branchId) async {
+    final supabase = client;
+    final user = supabase?.auth.currentUser;
+    if (supabase == null || user == null) {
+      throw StateError('Для истории необходимо войти в аккаунт.');
+    }
+
+    final rows = await supabase
+        .from('messages')
+        .select('id,role,content,turn_id,variant_index,selected,created_at')
+        .eq('branch_id', branchId)
+        .eq('user_id', user.id)
+        .order('created_at', ascending: true)
+        .limit(600);
+
+    final grouped = LinkedHashMap<String, List<Map<String, dynamic>>>();
+    String? currentLegacyTurn;
+    var legacyIndex = 0;
+
+    for (final raw in rows) {
+      final row = Map<String, dynamic>.from(raw);
+      final persistedTurnId = row['turn_id']?.toString();
+      String turnId;
+      if (persistedTurnId != null && persistedTurnId.isNotEmpty) {
+        turnId = persistedTurnId;
+      } else if (row['role'] == 'user') {
+        turnId = 'legacy-${legacyIndex++}';
+        currentLegacyTurn = turnId;
+      } else {
+        turnId = currentLegacyTurn ?? 'legacy-orphan-${legacyIndex++}';
+      }
+      grouped.putIfAbsent(turnId, () => <Map<String, dynamic>>[]).add(row);
+    }
+
+    final turns = <ChatTurn>[];
+    for (final entry in grouped.entries) {
+      final userRows = entry.value.where((row) => row['role'] == 'user').toList();
+      if (userRows.isEmpty) continue;
+      final userRow = userRows.first;
+      final assistantRows = entry.value.where((row) => row['role'] == 'assistant').toList()
+        ..sort((a, b) => ((a['variant_index'] as int?) ?? 0)
+            .compareTo((b['variant_index'] as int?) ?? 0));
+
+      final variants = assistantRows.map((row) => ChatMessageVariant(
+        id: row['id'] as String,
+        text: row['content'] as String,
+        index: (row['variant_index'] as int?) ?? 0,
+        isSelected: row['selected'] == true,
+      )).toList(growable: false);
+
+      turns.add(ChatTurn(
+        turnId: entry.key,
+        userMessageId: userRow['id'] as String,
+        userText: userRow['content'] as String,
+        variants: variants,
+      ));
+    }
+
+    return ChatConversation(branchId: branchId, turns: turns);
+  }
+
+  Future<ChatConversation> branchFromMessage({
+    required String characterId,
+    required String branchId,
+    required String messageId,
+    required String mode,
+  }) async {
+    final supabase = client;
+    if (supabase == null || supabase.auth.currentUser == null) {
+      throw StateError('Для создания ветки войдите в аккаунт.');
+    }
+
+    final response = await supabase.functions.invoke('chat', body: {
+      'action': 'branch',
+      'character_id': characterId,
+      'branch_id': branchId,
+      'message_id': messageId,
+      'mode': mode,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw StateError('Не удалось создать ветку истории.');
+    }
+
+    final newBranchId = (response.data as Map<String, dynamic>)['branch_id'] as String;
+    return loadConversation(newBranchId);
+  }
+
   Future<ChatReply> _invokeChat(Map<String, dynamic> body) async {
     final supabase = client;
     if (supabase == null || supabase.auth.currentUser == null) {
@@ -294,6 +416,22 @@ class NebulaRepository {
         'character_id': characterId,
         'branch_id': branchId,
         'message_id': messageId,
+        'mode': mode,
+      });
+
+  Future<ChatReply> editUserMessage({
+    required String characterId,
+    required String branchId,
+    required String messageId,
+    required String content,
+    required String mode,
+  }) =>
+      _invokeChat({
+        'action': 'edit',
+        'character_id': characterId,
+        'branch_id': branchId,
+        'message_id': messageId,
+        'content': content,
         'mode': mode,
       });
 
