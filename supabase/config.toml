@@ -1,0 +1,22 @@
+project_id = "nebula-ai"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 17
+
+[functions.chat]
+verify_jwt = true
+
+[functions.report-message]
+verify_jwt = true
+
+[functions.remote-config]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

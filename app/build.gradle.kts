@@ -4,31 +4,45 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseStoreFile = file("nebula-release.keystore")
+val releaseStorePassword = System.getenv("NEBULA_KEYSTORE_PASSWORD").orEmpty()
+val releaseKeyAlias = System.getenv("NEBULA_KEY_ALIAS").orEmpty()
+val releaseKeyPassword = System.getenv("NEBULA_KEY_PASSWORD").orEmpty()
+val hasReleaseSigning = releaseStoreFile.exists() &&
+    releaseStorePassword.isNotBlank() &&
+    releaseKeyAlias.isNotBlank() &&
+    releaseKeyPassword.isNotBlank()
+
 android {
     namespace = "ai.nebula.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ai.nebula.app"
         minSdk = 23
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
-        versionName = "0.2.0"
+        versionName = "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file("nebula-release.keystore")
-            storePassword = System.getenv("NEBULA_KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("NEBULA_KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("NEBULA_KEYSTORE_PASSWORD") ?: ""
+            storeFile = releaseStoreFile
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
         }
     }
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+            isMinifyEnabled = false
         }
     }
 
@@ -42,9 +56,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
 
     testOptions {
-        unitTests.all {
-            it.useJUnit()
-        }
+        unitTests.all { it.useJUnit() }
     }
 }
 
