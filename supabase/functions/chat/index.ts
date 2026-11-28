@@ -10,6 +10,7 @@ Deno.serve(async(req)=>{
  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});const {data:userData}=await userClient.auth.getUser();if(!userData.user)return reply({error:"unauthorized"},401);
  const admin=createClient(url,service),uid=userData.user.id;
  let lockToken:string|null=null;
+ let lockedBranchId:string|null=null;
  try{
  const b=await req.json(),cid=String(b.character_id??""),bid=String(b.branch_id??""),content=String(b.content??"").trim(),mode=["chat","roleplay","adventure"].includes(b.mode)?b.mode:"roleplay";
  if(!cid||!bid||!content||content.length>6000)return reply({error:"invalid_input"},400);
@@ -25,6 +26,7 @@ Deno.serve(async(req)=>{
  if(lockError)return reply({error:"turn_lock_unavailable"},503);
  if(lockAcquired!==true)return reply({error:"branch_busy",message:"В этой истории уже формируется ответ. Повтори отправку чуть позже."},409);
  lockToken=nextLockToken;
+ lockedBranchId=bid;
  const [{data:activePersona},{data:history},{data:summary}]=await Promise.all([
  admin.from("user_personas").select("*").eq("user_id",uid).eq("is_active",true).maybeSingle(),
  admin.from("messages").select("role,content").eq("branch_id",bid).eq("user_id",uid).eq("selected",true).order("created_at",{ascending:false}).limit(28),
@@ -54,5 +56,5 @@ Deno.serve(async(req)=>{
  if(count&&count%15===0){const endpoint=url+"/functions/v1/summarize";void fetch(endpoint,{method:"POST",headers:{authorization:"Bearer "+service,apikey:service,"content-type":"application/json"},body:JSON.stringify({branch_id:bid,user_id:uid})}).catch(()=>undefined);}
  return reply({reply:answer,branch_id:bid,user_message_id:userMessage?.id,assistant_message_id:assistantMessage?.id,variant_group:variantGroup,variant_index:0});
  }catch(e){if(e instanceof ProviderError)return reply({error:e.code,message:e.message},e.status);return reply({error:"internal_error"},500);}
- finally{if(lockToken){try{const {error}=await admin.rpc("release_chat_turn",{target_branch_id:String((await req.clone().json().catch(()=>({}))).branch_id??""),target_lock_token:lockToken});if(error)console.error("Chat lock release failed",error.message);}catch(error){console.error("Chat lock release failed",error);}}}
+ finally{if(lockToken&&lockedBranchId){try{const {error}=await admin.rpc("release_chat_turn",{target_branch_id:lockedBranchId,target_lock_token:lockToken});if(error)console.error("Chat lock release failed",error.message);}catch(error){console.error("Chat lock release failed",error);}}}
 });
