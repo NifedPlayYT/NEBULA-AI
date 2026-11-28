@@ -1,7 +1,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+type StorageListApi = {
+  list: (
+    prefix?: string,
+    options?: { limit?: number; offset?: number },
+  ) => Promise<{
+    data: Array<{ name: string; id: string | null }> | null;
+    error: unknown;
+  }>;
+  remove: (paths: string[]) => Promise<{ error: unknown }>;
+};
+
 async function collectUserObjects(
-  storage: ReturnType<ReturnType<typeof createClient>["storage"]["from"]>,
+  storage: StorageListApi,
   prefix: string,
   depth = 0,
 ): Promise<string[]> {
