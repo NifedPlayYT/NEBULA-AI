@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../app.dart';
 import '../models/character.dart';
+import '../services/repository.dart';
 import 'auth_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -15,16 +16,70 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
+class _MessageVariant {
+  const _MessageVariant({
+    required this.id,
+    required this.text,
+    required this.index,
+  });
+
+  final String id;
+  final String text;
+  final int index;
+}
+
 class _ChatLine {
-  const _ChatLine({
+  _ChatLine({
     required this.text,
     required this.isUser,
     this.messageId,
+    this.variantGroup,
   });
 
-  final String text;
+  String text;
   final bool isUser;
-  final String? messageId;
+  String? messageId;
+  String? variantGroup;
+  final List<_MessageVariant> variants = [];
+  int selectedVariant = 0;
+
+  void addVariant(ChatReply reply) {
+    final id = reply.assistantMessageId;
+    if (id == null) return;
+    final existing = variants.indexWhere((variant) => variant.id == id);
+    if (existing < 0) {
+      variants.add(_MessageVariant(
+        id: id,
+        text: reply.text,
+        index: reply.variantIndex,
+      ));
+    }
+    variants.sort((a, b) => a.index.compareTo(b.index));
+    activateById(id);
+    variantGroup = reply.variantGroup;
+  }
+
+  void activateById(String id) {
+    final index = variants.indexWhere((variant) => variant.id == id);
+    if (index >= 0) activate(index);
+  }
+
+  void activate(int index) {
+    if (index < 0 || index >= variants.length) return;
+    selectedVariant = index;
+    final variant = variants[index];
+    text = variant.text;
+    messageId = variant.id;
+  }
+}
+
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key, required this.character});
+
+  final Character character;
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -66,9 +121,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty || _sending) return;
-
-    if (!await _ensureSignedIn()) return;
-    if (!mounted) return;
+    if (!await _ensureSignedIn() || !mounted) return;
 
     _input.clear();
     setState(() {
@@ -85,13 +138,10 @@ class _ChatScreenState extends State<ChatScreen> {
         mode: _mode,
       );
       if (!mounted) return;
-      setState(() {
-        _lines.add(_ChatLine(
-          text: result.text,
-          isUser: false,
-          messageId: result.assistantMessageId,
-        ));
-      });
+
+      final reply = _ChatLine(text: result.text, isUser: false);
+      reply.addVariant(result);
+      setState(() => _lines.add(reply));
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -105,6 +155,59 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _sending = false);
         _scrollToBottom();
       }
+    }
+  }
+
+  Future<void> _regenerate(_ChatLine line) async {
+    final messageId = line.messageId;
+    if (messageId == null || _sending) return;
+    setState(() => _sending = true);
+
+    try {
+      final result = await repository.regenerateMessage(
+        characterId: widget.character.id,
+        branchId: _branchId,
+        messageId: messageId,
+        mode: _mode,
+      );
+      if (!mounted) return;
+      setState(() => line.addVariant(result));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось создать вариант: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _selectVariant(_ChatLine line, int index) async {
+    if (_sending || index < 0 || index >= line.variants.length) return;
+    final variant = line.variants[index];
+    if (variant.id == line.messageId) return;
+
+    setState(() => _sending = true);
+    try {
+      await repository.selectMessageVariant(
+        characterId: widget.character.id,
+        branchId: _branchId,
+        messageId: variant.id,
+        mode: _mode,
+      );
+      if (mounted) setState(() => line.activate(index));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось выбрать вариант: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -173,15 +276,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Widget _buildMessage(_ChatLine line) {
+  Widget _buildMessage(_ChatLine line, {required bool canRegenerate}) {
     final alignment = line.isUser ? Alignment.centerRight : Alignment.centerLeft;
     final color = line.isUser ? const Color(0xFF7056C8) : const Color(0xFF1A2030);
-    return Align(
+
+    final bubble = Align(
       alignment: alignment,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 330),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 8),
           child: Column(
             crossAxisAlignment: line.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
@@ -194,119 +298,176 @@ class _ChatScreenState extends State<ChatScreen> {
                 child: Text(line.text, style: const TextStyle(height: 1.4)),
               ),
               if (!line.isUser && line.messageId != null)
-                TextButton.icon(
-                  onPressed: () => _report(line),
-                  icon: const Icon(Icons.flag_outlined, size: 15),
-                  label: const Text('Пожаловаться', style: TextStyle(fontSize: 11)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white54,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 2,
+                  children: [
+                    if (canRegenerate && line.variants.length > 1) ...[
+                      IconButton(
+                        tooltip: 'Предыдущий вариант',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: line.selectedVariant > 0
+                            ? () => _selectVariant(line, line.selectedVariant - 1)
+                            : null,
+                        icon: const Icon(Icons.chevron_left, size: 19),
+                      ),
+                      Text(
+                        '${line.selectedVariant + 1}/${line.variants.length}',
+                        style: const TextStyle(fontSize: 11, color: Colors.white54),
+                      ),
+                      IconButton(
+                        tooltip: 'Следующий вариант',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: line.selectedVariant < line.variants.length - 1
+                            ? () => _selectVariant(line, line.selectedVariant + 1)
+                            : null,
+                        icon: const Icon(Icons.chevron_right, size: 19),
+                      ),
+                    ],
+                    if (canRegenerate)
+                      IconButton(
+                        tooltip: 'Создать другой ответ',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _sending ? null : () => _regenerate(line),
+                        icon: const Icon(Icons.refresh_rounded, size: 17),
+                      ),
+                    TextButton.icon(
+                      onPressed: () => _report(line),
+                      icon: const Icon(Icons.flag_outlined, size: 14),
+                      label: const Text('Пожаловаться', style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
         ),
       ),
     );
+
+    if (!canRegenerate || line.isUser) return bubble;
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -220) {
+          _regenerate(line);
+        } else if (velocity > 220 && line.selectedVariant > 0) {
+          _selectVariant(line, line.selectedVariant - 1);
+        }
+      },
+      child: bubble,
+    );
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundImage: widget.character.avatarUrl.isNotEmpty
-                    ? CachedNetworkImageProvider(widget.character.avatarUrl)
-                    : null,
-                child: widget.character.avatarUrl.isEmpty
-                    ? const Icon(Icons.person_outline, size: 18)
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(widget.character.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                    const Text('NEBULA STORY', style: TextStyle(fontSize: 9, letterSpacing: 1.4, color: Colors.white54)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        body: Column(
+  Widget build(BuildContext context) {
+    final latestAssistantIndex = _lines.lastIndexWhere(
+      (line) => !line.isUser && line.messageId != null,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'chat', label: Text('Чат')),
-                  ButtonSegment(value: 'roleplay', label: Text('Ролеплей')),
-                  ButtonSegment(value: 'adventure', label: Text('Сюжет')),
-                ],
-                selected: {_mode},
-                onSelectionChanged: (value) => setState(() => _mode = value.first),
-              ),
+            CircleAvatar(
+              radius: 18,
+              backgroundImage: widget.character.avatarUrl.isNotEmpty
+                  ? CachedNetworkImageProvider(widget.character.avatarUrl)
+                  : null,
+              child: widget.character.avatarUrl.isEmpty
+                  ? const Icon(Icons.person_outline, size: 18)
+                  : null,
             ),
+            const SizedBox(width: 10),
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(14),
-                itemCount: _lines.length + (_sending ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (_sending && index == _lines.length) {
-                    return const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text('Персонаж печатает…', style: TextStyle(color: Colors.white54)),
-                      ),
-                    );
-                  }
-                  return _buildMessage(_lines[index]);
-                },
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _input,
-                        minLines: 1,
-                        maxLines: 5,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        decoration: InputDecoration(
-                          hintText: 'Напиши сообщение…',
-                          filled: true,
-                          fillColor: const Color(0xFF171B29),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      onPressed: _sending ? null : _send,
-                      icon: const Icon(Icons.arrow_upward_rounded),
-                    ),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.character.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  const Text('NEBULA STORY', style: TextStyle(fontSize: 9, letterSpacing: 1.4, color: Colors.white54)),
+                ],
               ),
             ),
           ],
         ),
-      );
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'chat', label: Text('Чат')),
+                ButtonSegment(value: 'roleplay', label: Text('Ролеплей')),
+                ButtonSegment(value: 'adventure', label: Text('Сюжет')),
+              ],
+              selected: {_mode},
+              onSelectionChanged: (value) => setState(() => _mode = value.first),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(14),
+              itemCount: _lines.length + (_sending ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (_sending && index == _lines.length) {
+                  return const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text('Персонаж печатает…', style: TextStyle(color: Colors.white54)),
+                    ),
+                  );
+                }
+                return _buildMessage(
+                  _lines[index],
+                  canRegenerate: index == latestAssistantIndex,
+                );
+              },
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: 'Напиши сообщение…',
+                        filled: true,
+                        fillColor: const Color(0xFF171B29),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _sending ? null : _send,
+                    icon: const Icon(Icons.arrow_upward_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
