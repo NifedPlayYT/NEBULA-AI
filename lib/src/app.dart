@@ -38,18 +38,24 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final _chatsKey = GlobalKey<ChatsScreenState>();
+  final _catalogKey = GlobalKey<HomeScreenState>();
+  final _profileKey = GlobalKey<ProfileScreenState>();
   int _selectedIndex = 1;
 
   late final List<Widget> _pages = [
     ChatsScreen(key: _chatsKey),
-    const HomeScreen(),
-    const ProfileScreen(),
+    HomeScreen(key: _catalogKey),
+    ProfileScreen(key: _profileKey),
   ];
 
   void _selectTab(int index) {
     setState(() => _selectedIndex = index);
     if (index == 0) {
       _chatsKey.currentState?.reload();
+    } else if (index == 1) {
+      _catalogKey.currentState?.reload();
+    } else if (index == 2) {
+      _profileKey.currentState?.reload();
     }
   }
 
