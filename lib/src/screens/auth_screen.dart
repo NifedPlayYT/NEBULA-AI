@@ -28,9 +28,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _busy) return;
+
     final client = repository.client;
     if (client == null) {
-      setState(() => _error = 'Supabase не настроен. Добавьте URL проекта и публичный anon key при сборке.');
+      setState(() {
+        _error = 'Supabase не настроен. Добавьте URL проекта и публичный anon key при сборке.';
+      });
       return;
     }
 
@@ -45,7 +48,9 @@ class _AuthScreenState extends State<AuthScreen> {
           email: _email.text.trim(),
           password: _password.text,
         );
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         if (response.session == null) {
           setState(() {
             _busy = false;
@@ -60,14 +65,22 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pop(true);
     } on AuthException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(() => _error = error.message);
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Не удалось связаться с сервером. Проверьте подключение.');
+      if (mounted) {
+        setState(() => _error = 'Не удалось связаться с сервером. Проверьте подключение.');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -103,10 +116,15 @@ class _AuthScreenState extends State<AuthScreen> {
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(labelText: 'Электронная почта', prefixIcon: Icon(Icons.mail_outline)),
+                        decoration: const InputDecoration(
+                          labelText: 'Электронная почта',
+                          prefixIcon: Icon(Icons.mail_outline),
+                        ),
                         validator: (value) {
                           final email = value?.trim() ?? '';
-                          if (!email.contains('@') || email.length < 5) return 'Введите корректный адрес почты';
+                          if (!email.contains('@') || email.length < 5) {
+                            return 'Введите корректный адрес почты';
+                          }
                           return null;
                         },
                       ),
@@ -114,17 +132,23 @@ class _AuthScreenState extends State<AuthScreen> {
                       TextFormField(
                         controller: _password,
                         obscureText: _obscurePassword,
-                        autofillHints: _isSignUp ? const [AutofillHints.newPassword] : const [AutofillHints.password],
+                        autofillHints: _isSignUp
+                            ? const [AutofillHints.newPassword]
+                            : const [AutofillHints.password],
                         decoration: InputDecoration(
                           labelText: 'Пароль',
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            ),
                           ),
                         ),
                         validator: (value) {
-                          if ((value ?? '').length < 8) return 'Минимум 8 символов';
+                          if ((value ?? '').length < 8) {
+                            return 'Минимум 8 символов';
+                          }
                           return null;
                         },
                       ),
@@ -138,16 +162,24 @@ class _AuthScreenState extends State<AuthScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           child: _busy
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
                               : Text(_isSignUp ? 'Зарегистрироваться' : 'Войти'),
                         ),
                       ),
                       TextButton(
-                        onPressed: _busy ? null : () => setState(() {
-                          _isSignUp = !_isSignUp;
-                          _error = null;
-                        }),
-                        child: Text(_isSignUp ? 'Уже есть аккаунт? Войти' : 'Нужен аккаунт? Зарегистрироваться'),
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                  _isSignUp = !_isSignUp;
+                                  _error = null;
+                                }),
+                        child: Text(
+                          _isSignUp ? 'Уже есть аккаунт? Войти' : 'Нужен аккаунт? Зарегистрироваться',
+                        ),
                       ),
                     ],
                   ),
