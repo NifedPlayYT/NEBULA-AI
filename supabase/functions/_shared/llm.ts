@@ -20,11 +20,41 @@ export async function complete(messages:Message[],maxTokens:number):Promise<stri
  if(typeof answer!=="string"||!answer.trim())throw new ProviderError("Модель вернула пустой ответ.",502,"empty_response");
  return answer.trim();
 }
+function normalizeVector(values: number[]): number[] {
+ const norm=Math.sqrt(values.reduce((sum,value)=>sum+value*value,0));
+ return norm>0?values.map(value=>value/norm):values;
+}
+
+function poolEmbedding(payload: unknown): number[] | null {
+ const isVector=(value: unknown): value is number[] =>
+  Array.isArray(value)&&value.length===1024&&value.every((item)=>typeof item==="number"&&Number.isFinite(item));
+ if(isVector(payload)) return normalizeVector(payload);
+
+ let matrix: unknown=payload;
+ if(Array.isArray(matrix)&&matrix.length===1&&Array.isArray(matrix[0])&&Array.isArray(matrix[0][0])) {
+  matrix=matrix[0];
+ }
+ if(!Array.isArray(matrix)||matrix.length===0||!matrix.every((row)=>Array.isArray(row)&&row.length===1024&&row.every((item)=>typeof item==="number"&&Number.isFinite(item)))) {
+  return null;
+ }
+ const rows=matrix as number[][];
+ if(rows.length===1) return normalizeVector(rows[0]);
+ const pooled=Array.from({length:1024},(_,index)=>rows.reduce((sum,row)=>sum+row[index],0)/rows.length);
+ return normalizeVector(pooled);
+}
+
 export async function embed(text:string):Promise<number[]|null>{
  const key=Deno.env.get("HUGGINGFACE_API_KEY");if(!key)return null;
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);
- try{const r=await fetch("https://router.huggingface.co/hf-inference/models/BAAI/bge-m3/pipeline/feature-extraction",{method:"POST",headers:{authorization:`Bearer ${key}`,"content-type":"application/json"},body:JSON.stringify({inputs:text,options:{wait_for_model:true}}),signal:controller.signal});
- if(!r.ok)return null;const data=await r.json();const vector=Array.isArray(data?.[0])?data[0]:data;
- return Array.isArray(vector)&&vector.length===1024&&vector.every((n:unknown)=>typeof n==="number")?vector as number[]:null;
+ try{
+  const response=await fetch("https://router.huggingface.co/hf-inference/models/BAAI/bge-m3/pipeline/feature-extraction",{
+   method:"POST",
+   headers:{authorization:`Bearer ${key}`,"content-type":"application/json"},
+   body:JSON.stringify({inputs:text,options:{wait_for_model:true}}),
+   signal:controller.signal
+  });
+  if(!response.ok)return null;
+  const payload=await response.json();
+  return poolEmbedding(payload?.embedding??payload);
  }catch{return null;}finally{clearTimeout(timeout);}
 }
