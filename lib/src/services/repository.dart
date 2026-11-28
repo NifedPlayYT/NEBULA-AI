@@ -245,40 +245,78 @@ class NebulaRepository {
     return supabase.storage.from('character-art').getPublicUrl(objectPath);
   }
 
-  Future<ChatReply> sendMessage({
-    required String characterId,
-    required String branchId,
-    required String content,
-    required String mode,
-  }) async {
+  Future<ChatReply> _invokeChat(Map<String, dynamic> body) async {
     final supabase = client;
     if (supabase == null || supabase.auth.currentUser == null) {
       throw StateError('Для облачного чата войдите в аккаунт и настройте Supabase.');
     }
 
-    final response = await supabase.functions.invoke(
-      'chat',
-      body: {
-        'character_id': characterId,
-        'branch_id': branchId,
-        'content': content,
-        'mode': mode,
-      },
-    );
+    final response = await supabase.functions.invoke('chat', body: body);
     if (response.status < 200 || response.status >= 300) {
-      final message = (response.data is Map<String, dynamic>)
+      final message = response.data is Map<String, dynamic>
           ? (response.data as Map<String, dynamic>)['message']?.toString()
           : null;
       throw StateError(message ?? 'Ошибка сервера: ${response.status}');
     }
+
     final data = response.data as Map<String, dynamic>;
     return ChatReply(
       text: data['reply'] as String? ?? 'Пустой ответ модели.',
       userMessageId: data['user_message_id'] as String?,
-      assistantMessageId: data['assistant_message_id'] as String?,
+      assistantMessageId: data['assistant_message_id'] as String? ?? data['message_id'] as String?,
       variantGroup: data['variant_group'] as String?,
       variantIndex: (data['variant_index'] as int?) ?? 0,
     );
+  }
+
+  Future<ChatReply> sendMessage({
+    required String characterId,
+    required String branchId,
+    required String content,
+    required String mode,
+  }) =>
+      _invokeChat({
+        'action': 'send',
+        'character_id': characterId,
+        'branch_id': branchId,
+        'content': content,
+        'mode': mode,
+      });
+
+  Future<ChatReply> regenerateMessage({
+    required String characterId,
+    required String branchId,
+    required String messageId,
+    required String mode,
+  }) =>
+      _invokeChat({
+        'action': 'regenerate',
+        'character_id': characterId,
+        'branch_id': branchId,
+        'message_id': messageId,
+        'mode': mode,
+      });
+
+  Future<void> selectMessageVariant({
+    required String characterId,
+    required String branchId,
+    required String messageId,
+    required String mode,
+  }) async {
+    final supabase = client;
+    if (supabase == null || supabase.auth.currentUser == null) {
+      throw StateError('Для облачного чата войдите в аккаунт.');
+    }
+    final response = await supabase.functions.invoke('chat', body: {
+      'action': 'select_variant',
+      'character_id': characterId,
+      'branch_id': branchId,
+      'message_id': messageId,
+      'mode': mode,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw StateError('Не удалось переключить вариант ответа.');
+    }
   }
 
   Future<void> reportMessage({
