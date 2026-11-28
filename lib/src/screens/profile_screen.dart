@@ -193,11 +193,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           await repository.activatePersona(persona.id);
                                           _reload();
                                         } catch (error) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Не удалось выбрать персону: $error')),
-                                            );
+                                          if (!context.mounted) {
+                                            return;
                                           }
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Не удалось выбрать персону: $error')),
+                                          );
                                         }
                                       },
                               ),
