@@ -27,7 +27,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _busy) return;
+    if (!_formKey.currentState!.validate() || _busy) {
+      return;
+    }
 
     final client = repository.client;
     if (client == null) {
@@ -43,7 +45,9 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       if (_isSignUp) {
         final response = await client.auth.signUp(email: _email.text.trim(), password: _password.text);
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         if (response.session == null) {
           setState(() {
             _busy = false;
@@ -143,7 +147,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                 decoration: const InputDecoration(hintText: 'name@example.com', prefixIcon: Icon(Icons.mail_outline_rounded)),
                                 validator: (value) {
                                   final email = value?.trim() ?? '';
-                                  if (!email.contains('@') || email.length < 5) return 'Введите корректный адрес почты';
+                                  if (!email.contains('@') || email.length < 5) {
+                                    return 'Введите корректный адрес почты';
+                                  }
                                   return null;
                                 },
                               ),
