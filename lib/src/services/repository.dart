@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/character.dart';
 import '../models/chat_conversation.dart';
+import '../models/chat_list_item.dart';
 import '../models/user_persona.dart';
 
 class ChatReply {
@@ -72,6 +73,68 @@ class NebulaRepository {
     } catch (_) {
       return demoCharacters;
     }
+  }
+
+  Future<List<ChatListItem>> loadRecentChats() async {
+    final supabase = client;
+    final user = supabase?.auth.currentUser;
+    if (supabase == null || user == null) {
+      throw StateError('Для списка историй войдите в аккаунт.');
+    }
+
+    final branchRows = await supabase
+        .from('chat_branches')
+        .select('id,title,character_id,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false)
+        .limit(80);
+    if (branchRows.isEmpty) return const [];
+
+    final branchIds = branchRows.map((row) => row['id'] as String).toList();
+    final characterIds = branchRows
+        .map((row) => row['character_id'] as String)
+        .toSet()
+        .toList();
+
+    final characterRows = await supabase
+        .from('characters')
+        .select()
+        .inFilter('id', characterIds);
+    final characters = <String, Character>{
+      for (final row in characterRows)
+        (row['id'] as String): Character.fromMap(row),
+    };
+
+    final messageRows = await supabase
+        .from('messages')
+        .select('branch_id,role,content,created_at')
+        .inFilter('branch_id', branchIds)
+        .eq('selected', true)
+        .order('created_at', ascending: false)
+        .limit(400);
+    final latestMessageByBranch = <String, String>{};
+    for (final row in messageRows) {
+      final branchId = row['branch_id'] as String;
+      if (latestMessageByBranch.containsKey(branchId)) continue;
+      latestMessageByBranch[branchId] = (row['content'] as String?) ?? '';
+    }
+
+    final items = <ChatListItem>[];
+    for (final row in branchRows) {
+      final branchId = row['id'] as String;
+      final character = characters[row['character_id'] as String];
+      if (character == null) continue;
+      items.add(ChatListItem(
+        branchId: branchId,
+        title: (row['title'] as String?)?.trim().isNotEmpty == true
+            ? row['title'] as String
+            : character.name,
+        createdAt: DateTime.parse(row['created_at'] as String),
+        character: character,
+        lastMessage: latestMessageByBranch[branchId] ?? character.greeting,
+      ));
+    }
+    return items;
   }
 
   Future<Character> saveCharacter({
