@@ -74,9 +74,14 @@ class _ChatLine {
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.character});
+  const ChatScreen({
+    super.key,
+    required this.character,
+    this.initialBranchId,
+  });
 
   final Character character;
+  final String? initialBranchId;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -131,7 +136,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     setState(() => _loading = true);
     try {
-      final conversation = await repository.openConversation(widget.character.id);
+      final conversation = widget.initialBranchId == null
+          ? await repository.openConversation(widget.character.id)
+          : await repository.loadConversation(widget.initialBranchId!);
       if (!mounted) return false;
       _applyConversation(conversation);
       _conversationLoaded = true;
