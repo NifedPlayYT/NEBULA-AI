@@ -12,10 +12,10 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class ProfileScreenState extends State<ProfileScreen> {
   late Future<List<UserPersona>> _personas;
 
   @override
@@ -26,7 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : Future.value(const <UserPersona>[]);
   }
 
-  void _reload() {
+  void reload() {
     setState(() {
       _personas = repository.isSignedIn
           ? repository.loadPersonas()
@@ -38,20 +38,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const AuthScreen()),
     );
-    if (result == true && mounted) _reload();
+    if (result == true && mounted) reload();
   }
 
   Future<void> _openEditor([UserPersona? persona]) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => PersonaEditorScreen(persona: persona)),
     );
-    if (result == true && mounted) _reload();
+    if (result == true && mounted) reload();
   }
 
   Future<void> _signOut() async {
     try {
       await repository.signOut();
-      if (mounted) _reload();
+      if (mounted) reload();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await repository.deleteAccount();
       if (mounted) {
-        _reload();
+        reload();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Аккаунт удалён.')),
         );
@@ -191,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : () async {
                                         try {
                                           await repository.activatePersona(persona.id);
-                                          _reload();
+                                          reload();
                                         } catch (error) {
                                           if (!context.mounted) {
                                             return;
