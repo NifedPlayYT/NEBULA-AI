@@ -1,0 +1,8 @@
+project_id = "nebula-ai"
+
+[functions.chat]
+verify_jwt = true
+[functions.summarize]
+verify_jwt = true
+[functions.delete-account]
+verify_jwt = true
