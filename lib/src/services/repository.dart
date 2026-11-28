@@ -6,6 +6,22 @@ import 'package:uuid/uuid.dart';
 import '../models/character.dart';
 import '../models/user_persona.dart';
 
+class ChatReply {
+  const ChatReply({
+    required this.text,
+    this.userMessageId,
+    this.assistantMessageId,
+    this.variantGroup,
+    this.variantIndex = 0,
+  });
+
+  final String text;
+  final String? userMessageId;
+  final String? assistantMessageId;
+  final String? variantGroup;
+  final int variantIndex;
+}
+
 class NebulaRepository {
   SupabaseClient? get client {
     try {
@@ -130,7 +146,7 @@ class NebulaRepository {
     return supabase.storage.from('character-art').getPublicUrl(objectPath);
   }
 
-  Future<String> sendMessage({
+  Future<ChatReply> sendMessage({
     required String characterId,
     required String branchId,
     required String content,
@@ -156,8 +172,14 @@ class NebulaRepository {
           : null;
       throw StateError(message ?? 'Ошибка сервера: ${response.status}');
     }
-    return (response.data as Map<String, dynamic>)['reply'] as String? ??
-        'Пустой ответ модели.';
+    final data = response.data as Map<String, dynamic>;
+    return ChatReply(
+      text: data['reply'] as String? ?? 'Пустой ответ модели.',
+      userMessageId: data['user_message_id'] as String?,
+      assistantMessageId: data['assistant_message_id'] as String?,
+      variantGroup: data['variant_group'] as String?,
+      variantIndex: (data['variant_index'] as int?) ?? 0,
+    );
   }
 
   Future<void> reportMessage({
