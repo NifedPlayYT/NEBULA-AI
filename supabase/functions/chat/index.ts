@@ -18,8 +18,8 @@ Deno.serve(async(req)=>{
  if(!branch){const {error}=await admin.from("chat_branches").insert({id:bid,user_id:uid,character_id:cid,mode});if(error)return reply({error:"branch_create_failed"},500);}
  else if(branch.character_id!==cid)return reply({error:"branch_mismatch"},409);
  const [{data:persona},{data:history},{data:summary}]=await Promise.all([
- admin.from("user_personas").select("*").eq("user_id",uid).limit(1).maybeSingle(),
- admin.from("messages").select("role,content").eq("branch_id",bid).eq("user_id",uid).order("created_at",{ascending:false}).limit(28),
+ admin.from("user_personas").select("*").eq("user_id",uid).eq("is_active",true).maybeSingle(),
+ admin.from("messages").select("role,content").eq("branch_id",bid).eq("user_id",uid).eq("selected",true).order("created_at",{ascending:false}).limit(28),
  admin.from("conversation_summaries").select("summary").eq("branch_id",bid).maybeSingle()]);
  const words=content.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w:string)=>w.length>2);
  const {data:lore}=await admin.from("lorebook_entries").select("title,content,keywords").eq("character_id",cid).eq("enabled",true).order("priority",{ascending:false}).limit(40);
@@ -32,10 +32,16 @@ Deno.serve(async(req)=>{
  const modeText=mode==="chat"?"Обычный чат.":mode==="adventure"?"Сюжетное приключение: продвигай сцену и оставляй выбор.":"Художественный ролеплей: действия между *звёздочками*.";
  const messages:Message[]=[{role:"system",content:system},{role:"system",content:characterCard+"\n"+personaCard+"\n"+modeText},...(context?[{role:"system" as const,content:context}]:[]),...(history??[]).reverse().map((m:any)=>({role:m.role as "user"|"assistant",content:m.content})),{role:"user",content}];
  const answer=await complete(messages,850);
- const {error:saveError}=await admin.from("messages").insert([{branch_id:bid,user_id:uid,role:"user",content},{branch_id:bid,user_id:uid,role:"assistant",content:answer}]);
- if(saveError)return reply({error:"save_failed"},500);
+ const variantGroup=crypto.randomUUID();
+ const {data:savedMessages,error:saveError}=await admin.from("messages").insert([
+  {branch_id:bid,user_id:uid,role:"user",content},
+  {branch_id:bid,user_id:uid,role:"assistant",content:answer,variant_group:variantGroup,variant_index:0,selected:true}
+ ]).select("id,role");
+ if(saveError||!savedMessages)return reply({error:"save_failed"},500);
+ const userMessage=savedMessages.find((m:any)=>m.role==="user");
+ const assistantMessage=savedMessages.find((m:any)=>m.role==="assistant");
  const {count}=await admin.from("messages").select("id",{count:"exact",head:true}).eq("branch_id",bid);
  if(count&&count%15===0){const endpoint=url+"/functions/v1/summarize";void fetch(endpoint,{method:"POST",headers:{authorization:"Bearer "+service,apikey:service,"content-type":"application/json"},body:JSON.stringify({branch_id:bid,user_id:uid})}).catch(()=>undefined);}
- return reply({reply:answer,branch_id:bid});
+ return reply({reply:answer,branch_id:bid,user_message_id:userMessage?.id,assistant_message_id:assistantMessage?.id,variant_group:variantGroup,variant_index:0});
  }catch(e){if(e instanceof ProviderError)return reply({error:e.code,message:e.message},e.status);return reply({error:"internal_error"},500);}
 });
